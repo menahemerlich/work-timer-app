@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>טיימר שעות עבודה</title>
+
+  <!-- פונט -->
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #4f46e5, #06b6d4);
+      font-family: 'Assistant', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #0f172a;
+    }
+
+    .card {
+      background: #ffffff;
+      width: 100%;
+      max-width: 520px;
+      border-radius: 18px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
+      padding: 22px 24px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 55%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .card-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .badge {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.06);
+      color: #1d4ed8;
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      white-space: nowrap;
+    }
+
+    .time-display {
+      font-size: 40px;
+      font-weight: 600;
+      text-align: center;
+      margin: 18px 0 6px;
+      direction: ltr;
+      letter-spacing: 0.04em;
+      color: #0f172a;
+    }
+
+    .info-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .info-card {
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 8px 10px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .info-label {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 2px;
+    }
+
+    .info-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: #0f172a;
+      min-height: 18px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .buttons-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      flex: 1;
+      padding: 9px 10px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.08s ease-out, box-shadow 0.12s ease-out, background 0.12s ease-out, opacity 0.12s;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.10);
+      white-space: nowrap;
+    }
+
+    button span.icon {
+      font-size: 14px;
+    }
+
+    button:active {
+      transform: translateY(1px) scale(0.99);
+      box-shadow: 0 0 0 rgba(15, 23, 42, 0.10);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    #startBtn {
+      background: #22c55e;
+      color: white;
+    }
+
+    #startBtn:hover:not(:disabled) {
+      background: #16a34a;
+    }
+
+    #pauseBtn {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    #pauseBtn:hover:not(:disabled) {
+      background: #d4d4d8;
+    }
+
+    #stopBtn {
+      background: #ef4444;
+      color: white;
+    }
+
+    #stopBtn:hover:not(:disabled) {
+      background: #dc2626;
+    }
+
+    #showLogsBtn {
+      background: #6366f1;
+      color: white;
+    }
+
+    #showLogsBtn:hover:not(:disabled) {
+      background: #4f46e5;
+    }
+
+    #saveBtn {
+      background: #0ea5e9;
+      color: white;
+    }
+
+    #saveBtn:hover:not(:disabled) {
+      background: #0284c7;
+    }
+
+    #loadFromFileBtn {
+      background: #f59e0b;
+      color: #111827;
+    }
+
+    #loadFromFileBtn:hover:not(:disabled) {
+      background: #d97706;
+    }
+
+    #resetBtn {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    #resetBtn:hover:not(:disabled) {
+      background: #d4d4d8;
+    }
+
+    /* =========================
+       ✅ תוספת: כפתור "ייצוא סוף יום"
+       (רק סטייל לכפתור חדש)
+       ========================= */
+    #exportEndDayBtn {
+      background: #8b5cf6;
+      color: white;
+    }
+
+    #exportEndDayBtn:hover:not(:disabled) {
+      background: #7c3aed;
+    }
+
+    .logs-container {
+      margin-top: 18px;
+      padding-top: 10px;
+      border-top: 1px dashed #e2e8f0;
+      display: none;
+    }
+
+    .logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 6px;
+    }
+
+    .logs-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .logs-note {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 4px;
+      overflow: hidden;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+    }
+
+    th,
+    td {
+      padding: 6px 8px;
+      text-align: center;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    .summary-row {
+      background: #eef2ff;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .no-logs {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .footer-hint {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #94a3b8;
+      text-align: left;
+    }
+
+    @media (max-width: 600px) {
+      .card {
+        margin: 16px;
+        padding: 18px 16px 18px;
+      }
+
+      .info-row {
+        grid-template-columns: 1fr;
+      }
+
+      .buttons-row {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <div class="card-inner">
+      <div class="header">
+        <div class="title-block">
+          <h1>טיימר שעות עבודה</h1>
+          <div class="subtitle">ניהול זמן עבודה אישי – פשוט וברור</div>
+        </div>
+        <div class="badge">מצב: <span id="statusLabel">ממתין</span></div>
+      </div>
+
+      <div class="time-display" id="elapsedTime">00:00:00</div>
+
+      <div class="info-row">
+        <div class="info-card">
+          <div class="info-label">שעת התחלה</div>
+          <div class="info-value" id="startTimeDisplay">-</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">שעת סיום</div>
+          <div class="info-value" id="endTimeDisplay">-</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">משך עבודה נוכחי</div>
+          <div class="info-value" id="durationDisplay">-</div>
+        </div>
+      </div>
+
+      <!-- התחלה / השהיה / סיום -->
+      <div class="buttons-row">
+        <button id="startBtn">
+          <span class="icon">▶</span>
+          <span>התחלה</span>
+        </button>
+        <button id="pauseBtn" disabled>
+          <span class="icon">⏸️</span>
+          <span id="pauseLabel">השהיה</span>
+        </button>
+        <button id="stopBtn" disabled>
+          <span class="icon">■</span>
+          <span>סיום</span>
+        </button>
+      </div>
+
+      <div class="buttons-row">
+        <button id="showLogsBtn">
+          <span class="icon">📋</span>
+          <span>הצגת כל הדוחות</span>
+        </button>
+        <button id="saveBtn">
+          <span class="icon">💾</span>
+          <span>שמירה לקובץ (CSV)</span>
+        </button>
+      </div>
+
+      <!-- =========================
+           ✅ תוספת: כפתור "ייצוא סוף יום"
+           (מיקום: בין שמירה ל-CSV לבין טעינה/איפוס)
+           ========================= -->
+      <div class="buttons-row">
+        <button id="exportEndDayBtn">
+          <span class="icon">🌙</span>
+          <span>ייצוא סוף יום</span>
+        </button>
+
+        <button id="exportCurrentMonthBtn">
+          <span class="icon">🗓️</span>
+          <span>ייצוא החודש</span>
+        </button>
+      </div>
+
+
+      <div class="buttons-row">
+        <button id="loadFromFileBtn">
+          <span class="icon">📂</span>
+          <span>טעינת קובץ (CSV)</span>
+        </button>
+        <button id="resetBtn">
+          <span class="icon">🗑️</span>
+          <span>איפוס כל הדוחות</span>
+        </button>
+      </div>
+
+      <input type="file" id="fileInput" accept=".csv" style="display:none" />
+
+      <div class="logs-container" id="logsContainer">
+        <div class="logs-header">
+          <div class="logs-title">דוחות שמורים</div>
+          <div class="logs-note">נשמר מקומית במחשב (localStorage)</div>
+        </div>
+
+        <div id="noLogsMsg" class="no-logs">אין עדיין דוחות.</div>
+
+        <table id="logsTable">
+          <thead>
+            <tr>
+              <th>תאריך</th>
+              <th>התחלה</th>
+              <th>סיום</th>
+              <th>משך</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr class="summary-row">
+              <td colspan="4">
+                סה"כ זמן עבודה: <span id="totalDuration">00:00:00</span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- ===== סיכום חודשי (פשוט) ===== -->
+      <div id="monthlySummarySimple" style="display:none; margin-top:16px;">
+        <div class="logs-header">
+          <div class="logs-title">📦 סיכום החודש הנוכחי</div>
+        </div>
+
+        <div class="info-row">
+          <div class="info-card">
+            <div class="info-label">ימי עבודה</div>
+            <div class="info-value" id="monthDaysCount">0</div>
+          </div>
+
+          <div class="info-card">
+            <div class="info-label">סה״כ שעות</div>
+            <div class="info-value" id="monthTotalHoursSimple">00:00:00</div>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="footer-hint">
+        💡 טיפ: אפשר לייצא ל־CSV ולפתוח באקסל לסיכומים חודשיים.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let originalStartTime = null;   // שעת התחלה של כל הריצה
+    let startTime = null;           // שעת התחלה של המקטע הנוכחי
+    let endTime = null;
+    let timerInterval = null;
+    let accumulatedMs = 0;          // זמן מצטבר עד עכשיו (כולל הפסקות קודמות)
+    let isPaused = false;
+    let logs = [];
+
+    const elapsedTimeEl = document.getElementById("elapsedTime");
+    const startTimeDisplay = document.getElementById("startTimeDisplay");
+    const endTimeDisplay = document.getElementById("endTimeDisplay");
+    const durationDisplay = document.getElementById("durationDisplay");
+    const statusLabel = document.getElementById("statusLabel");
+
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const pauseLabel = document.getElementById("pauseLabel");
+    const stopBtn = document.getElementById("stopBtn");
+    const showLogsBtn = document.getElementById("showLogsBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const loadBtn = document.getElementById("loadFromFileBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const fileInput = document.getElementById("fileInput");
+
+    const logsContainer = document.getElementById("logsContainer");
+    const logsTableBody = document.querySelector("#logsTable tbody");
+    const noLogsMsg = document.getElementById("noLogsMsg");
+    const totalDurationEl = document.getElementById("totalDuration");
+
+    const STORAGE_KEY = "workLogs";
+
+    function formatTime(date) {
+      return date.toLocaleTimeString("he-IL", { hour12: false });
+    }
+
+    function formatDuration(ms) {
+      const sec = Math.floor(ms / 1000);
+      const h = String(Math.floor(sec / 3600)).padStart(2, "0");
+      const m = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
+      const s = String(sec % 60).padStart(2, "0");
+      return `${h}:${m}:${s}`;
+    }
+
+    function parseDurationToMs(str) {
+      const p = str.split(":").map(Number);
+      if (p.length !== 3 || p.some(isNaN)) return 0;
+      return (p[0] * 3600 + p[1] * 60 + p[2]) * 1000;
+    }
+
+    function getCurrentElapsedMs() {
+      const now = new Date();
+      if (startTime) {
+        return accumulatedMs + (now - startTime);
+      }
+      return accumulatedMs;
+    }
+
+    function updateElapsedTime() {
+      if (!originalStartTime && accumulatedMs === 0) return;
+      const ms = getCurrentElapsedMs();
+      localStorage.setItem("timerState", JSON.stringify({
+        elapsedMs: ms,
+        isPaused: isPaused,
+        isRunning: !!originalStartTime
+      }));
+      const formatted = formatDuration(ms);
+      elapsedTimeEl.textContent = formatted;
+      durationDisplay.textContent = "משך עבודה נוכחי: " + formatted;
+
+    }
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+      } catch (e) {
+        console.error("שגיאה בשמירה ל-localStorage", e);
+      }
+    }
+
+    function loadFromStorage() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEY);
+        logs = data ? JSON.parse(data) : [];
+      } catch {
+        logs = [];
+      }
+    }
+
+    function renderLogs() {
+      logsTableBody.innerHTML = "";
+
+      if (!logs.length) {
+        noLogsMsg.style.display = "block";
+        document.getElementById("logsTable").style.display = "none";
+        return;
+      }
+
+      noLogsMsg.style.display = "none";
+      document.getElementById("logsTable").style.display = "table";
+
+      logs.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+        <td>${r.date}</td>
+        <td>${r.start}</td>
+        <td>${r.end}</td>
+        <td>${r.durationStr}</td>
+      `;
+        logsTableBody.appendChild(tr);
+      });
+    }
+
+    function updateTotal() {
+      const total = logs.reduce((sum, r) => sum + (r.durationMs || 0), 0);
+      totalDurationEl.textContent = formatDuration(total);
+    }
+
+    // ===== סיכום חודשי פשוט =====
+    function updateMonthlySummarySimple() {
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      const monthLogs = logs.filter(r => {
+        const [day, month, year] = r.date.split(".").map(Number);
+        if (!day || !month || !year) return false;
+        return month - 1 === currentMonth && year === currentYear;
+      });
+
+      const box = document.getElementById("monthlySummarySimple");
+      if (!box) return;
+
+      if (!monthLogs.length) {
+        box.style.display = "none";
+        return;
+      }
+
+      box.style.display = "block";
+
+      const totalMs = monthLogs.reduce((sum, r) => sum + (r.durationMs || 0), 0);
+      const workDays = new Set(monthLogs.map(r => r.date)).size;
+
+      document.getElementById("monthDaysCount").textContent = workDays;
+      document.getElementById("monthTotalHoursSimple").textContent =
+        formatDuration(totalMs);
+    }
+
+
+    function addLog(entry) {
+      logs.push(entry);
+      saveToStorage();
+      renderLogs();
+      updateTotal();
+      updateMonthlySummarySimple();
+    }
+
+    function startTimerInterval() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(updateElapsedTime, 1000);
+    }
+
+    function stopTimerInterval() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    // התחלה (ריצה חדשה)
+    startBtn.addEventListener("click", () => {
+      originalStartTime = new Date();
+      startTime = originalStartTime;
+      endTime = null;
+      accumulatedMs = 0;
+      isPaused = false;
+
+      startTimeDisplay.textContent = formatTime(originalStartTime);
+      endTimeDisplay.textContent = "-";
+      durationDisplay.textContent = "00:00:00";
+      elapsedTimeEl.textContent = "00:00:00";
+
+      statusLabel.textContent = "בעבודה";
+      statusLabel.style.color = "#16a34a";
+
+      startTimerInterval();
+
+      startBtn.disabled = true;
+      pauseBtn.disabled = false;
+      pauseLabel.textContent = "השהיה";
+      stopBtn.disabled = false;
+      saveTimerState()
+    });
+
+    // השהיה / המשך
+    pauseBtn.addEventListener("click", () => {
+      if (!originalStartTime) return;
+
+      if (!isPaused) {
+        // מעבר למצב השהיה
+        accumulatedMs = getCurrentElapsedMs();
+        startTime = null;
+        isPaused = true;
+
+        stopTimerInterval();
+        updateElapsedTime(); // עדכון אחרון
+
+        statusLabel.textContent = "מושהה";
+        statusLabel.style.color = "#f97316";
+
+        pauseLabel.textContent = "המשך";
+      } else {
+        // מעבר למצב המשך
+        startTime = new Date();
+        isPaused = false;
+
+        statusLabel.textContent = "בעבודה";
+        statusLabel.style.color = "#16a34a";
+
+        pauseLabel.textContent = "השהיה";
+        startTimerInterval();
+      }
+      saveTimerState();
+    });
+
+    // סיום ריצה
+    stopBtn.addEventListener("click", () => {
+      if (!originalStartTime && accumulatedMs === 0) return;
+
+      const now = new Date();
+      endTime = now;
+
+      // אם רצנו כרגע – נוסיף את הקטע האחרון
+      if (startTime) {
+        accumulatedMs += (now - startTime);
+      }
+
+      stopTimerInterval();
+
+      const durationMs = accumulatedMs;
+      const durationStr = formatDuration(durationMs);
+
+      endTimeDisplay.textContent = formatTime(endTime);
+      durationDisplay.textContent = durationStr;
+      elapsedTimeEl.textContent = durationStr;
+
+      statusLabel.textContent = "ממתין";
+      statusLabel.style.color = "#1d4ed8";
+
+      addLog({
+        date: originalStartTime.toLocaleDateString("he-IL"),
+        start: formatTime(originalStartTime),
+        end: formatTime(endTime),
+        durationMs,
+        durationStr
+      });
+
+      // איפוס מצב ריצה (אבל לא דוחות)
+      originalStartTime = null;
+      startTime = null;
+      accumulatedMs = 0;
+      isPaused = false;
+
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      pauseLabel.textContent = "השהיה";
+      stopBtn.disabled = true;
+      saveTimerState();
+    });
+
+    // הצגת / הסתרת דוחות
+    showLogsBtn.addEventListener("click", () => {
+      const visible = logsContainer.style.display === "block";
+      logsContainer.style.display = visible ? "none" : "block";
+      showLogsBtn.textContent = visible ? "הצגת כל הדוחות" : "הסתרת הדוחות";
+    });
+
+    // שמירה ל-CSV
+    saveBtn.addEventListener("click", () => {
+      if (!logs.length) {
+        alert("אין מה לייצא.");
+        return;
+      }
+
+      let csv = "תאריך,התחלה,סיום,משך\n";
+      logs.forEach(r => {
+        csv += `${r.date},${r.start},${r.end},${r.durationStr}\n`;
+      });
+
+      const total = logs.reduce((s, r) => s + (r.durationMs || 0), 0);
+      csv += `סה\"כ זמן עבודה,,,${formatDuration(total)}\n`;
+
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "שעות_עבודה.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    /* =========================
+       ✅ תוספת: ייצוא סוף יום בלבד
+       ========================= */
+    document.getElementById("exportEndDayBtn").addEventListener("click", () => {
+      const today = new Date().toLocaleDateString("he-IL");
+      const todayLogs = logs.filter(r => r.date === today);
+
+      if (!todayLogs.length) {
+        alert("אין נתוני עבודה להיום.");
+        return;
+      }
+
+      let csv = "תאריך,התחלה,סיום,משך\n";
+      todayLogs.forEach(r => {
+        csv += `${r.date},${r.start},${r.end},${r.durationStr}\n`;
+      });
+
+      const total = todayLogs.reduce((s, r) => s + (r.durationMs || 0), 0);
+      csv += `סה\"כ זמן עבודה,,,${formatDuration(total)}\n`;
+
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `שעות_עבודה_סוף_יום_${today}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    /* =========================
+   ✅ תוספת: ייצוא החודש הנוכחי בלבד
+   ========================= */
+    document.getElementById("exportCurrentMonthBtn").addEventListener("click", () => {
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      const monthLogs = logs.filter(r => {
+        // r.date בפורמט he-IL (dd.mm.yyyy)
+        const [day, month, year] = r.date.split(".").map(Number);
+        if (!day || !month || !year) return false;
+
+        return (
+          month - 1 === currentMonth &&
+          year === currentYear
+        );
+      });
+
+      if (!monthLogs.length) {
+        alert("אין נתוני עבודה לחודש הנוכחי.");
+        return;
+      }
+
+      let csv = "תאריך,התחלה,סיום,משך\n";
+      monthLogs.forEach(r => {
+        csv += `${r.date},${r.start},${r.end},${r.durationStr}\n`;
+      });
+
+      const total = monthLogs.reduce((s, r) => s + (r.durationMs || 0), 0);
+      csv += `סה\"כ זמן עבודה,,,${formatDuration(total)}\n`;
+
+      const fileName =
+        `שעות_עבודה_${currentYear}-${String(currentMonth + 1).padStart(2, "0")}.csv`;
+
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+
+    // טעינת CSV
+    loadBtn.addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        const lines = e.target.result.split(/\r?\n/);
+        const newLogs = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const row = lines[i].trim();
+          if (!row) continue;
+
+          const col = row.split(",");
+          if (col[0].startsWith('סה\"כ')) continue;
+          if (col.length < 4) continue;
+
+          const durationMs = parseDurationToMs(col[3]);
+          newLogs.push({
+            date: col[0],
+            start: col[1],
+            end: col[2],
+            durationStr: col[3],
+            durationMs
+          });
+        }
+
+        logs = newLogs;
+        saveToStorage();
+        renderLogs();
+        updateTotal();
+        logsContainer.style.display = "block";
+        showLogsBtn.textContent = "הסתרת הדוחות";
+        alert("הקובץ נטען בהצלחה.");
+      };
+
+      reader.readAsText(file, "utf-8");
+      fileInput.value = "";
+    });
+
+    // איפוס כל הדוחות
+    resetBtn.addEventListener("click", () => {
+      if (!confirm("למחוק את כל הדוחות והזמנים?")) return;
+
+      logs = [];
+      saveToStorage();
+      renderLogs();
+      updateTotal();
+      updateMonthlySummarySimple();
+
+      originalStartTime = null;
+      startTime = null;
+      endTime = null;
+      accumulatedMs = 0;
+      isPaused = false;
+
+      stopTimerInterval();
+
+      elapsedTimeEl.textContent = "00:00:00";
+      startTimeDisplay.textContent = "-";
+      endTimeDisplay.textContent = "-";
+      durationDisplay.textContent = "-";
+
+      statusLabel.textContent = "ממתין";
+      statusLabel.style.color = "#1d4ed8";
+
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      pauseLabel.textContent = "השהיה";
+      stopBtn.disabled = true;
+    });
+
+    // טעינה ראשונית
+    window.addEventListener("load", () => {
+      loadFromStorage();
+      renderLogs();
+      updateTotal();
+      updateMonthlySummarySimple();
+
+      // מצב כפתורים בתחילת טעינה
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      stopBtn.disabled = true;
+    });
+
+    function saveTimerState() {
+      const ms = getCurrentElapsedMs();
+
+      localStorage.setItem("timerState", JSON.stringify({
+        elapsedMs: ms,
+        isPaused: isPaused,
+        isRunning: !!originalStartTime
+      }));
+    }
+
+
+    setInterval(() => {
+      const state = JSON.parse(localStorage.getItem("timerState"));
+      if (!state) return;
+
+      const command = localStorage.getItem("timerCommand");
+
+      if (command === "start" && !originalStartTime) {
+        startBtn.click();
+        localStorage.removeItem("timerCommand");
+      }
+
+      if (command === "stop" && originalStartTime) {
+        stopBtn.click();
+        localStorage.removeItem("timerCommand");
+      }
+
+      if (command === "toggle" && originalStartTime) {
+        pauseBtn.click();
+        localStorage.removeItem("timerCommand");
+      }
+
+    }, 500);
+
+
+  </script>
+
+</body>
+
+</html>

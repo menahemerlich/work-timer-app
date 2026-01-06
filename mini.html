@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>טיימר</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0f172a;
+            color: white;
+            font-family: system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 10px;
+        }
+
+        #time {
+            font-size: 28px;
+            letter-spacing: 1px;
+        }
+
+        button {
+            padding: 6px 18px;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            background: #22c55e;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="time">00:00:00</div>
+    <button id="toggleBtn">השהיה</button>
+
+    <script>
+        function format(ms) {
+            const s = Math.floor(ms / 1000);
+            const h = String(Math.floor(s / 3600)).padStart(2, "0");
+            const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+            const sec = String(s % 60).padStart(2, "0");
+            return `${h}:${m}:${sec}`;
+        }
+
+        function update() {
+            const state = JSON.parse(localStorage.getItem("timerState"));
+
+            const timeEl = document.getElementById("time");
+            const toggleBtn = document.getElementById("toggleBtn");
+
+            // אם אין בכלל state — רק אז איפוס
+            if (!state) {
+                timeEl.textContent = "00:00:00";
+                toggleBtn.style.display = "none";
+                return;
+            }
+
+            // ❗ תמיד להציג את הזמן האחרון, גם בהשהיה
+            timeEl.textContent = format(state.elapsedMs || 0);
+
+            // ❗ הכפתור קיים כל עוד יש זמן (גם אם מושהה)
+            const hasTime = (state.elapsedMs || 0) > 0;
+            toggleBtn.style.display = hasTime ? "inline-block" : "none";
+
+            toggleBtn.textContent = state.isPaused ? "המשך" : "השהיה";
+        }
+
+
+        setInterval(update, 500);
+        update();
+
+        document.getElementById("toggleBtn").onclick = () => {
+            localStorage.setItem("timerCommand", "toggle");
+        };
+    </script>
+
+</body>
+
+</html>
