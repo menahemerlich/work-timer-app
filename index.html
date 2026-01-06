@@ -411,6 +411,8 @@
           <span class="icon">🗑️</span>
           <span>איפוס כל הדוחות</span>
         </button>
+        <button id="openMiniBtn">🪟 חלון קטן</button>
+
       </div>
 
       <input type="file" id="fileInput" accept=".csv" style="display:none" />
@@ -966,6 +968,9 @@
 
     }, 500);
 
+    document.getElementById("openMiniBtn").addEventListener("click", () => {
+      window.electronAPI.openMiniWindow();
+    });
 
   </script>
 

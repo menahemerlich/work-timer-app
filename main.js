@@ -1,31 +1,45 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 
-let mainWindow;
-let miniWindow;
+let mainWindow = null;
+let miniWindow = null;
 
-function createWindows() {
-  // חלון ראשי
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 900,
     height: 700,
     webPreferences: {
-      contextIsolation: false
-    }
-  });
-
-  // חלון קטן
-  miniWindow = new BrowserWindow({
-    width: 300,
-    height: 200,
-    alwaysOnTop: true,
-    resizable: false,
-    webPreferences: {
-      contextIsolation: false
+      preload: __dirname + "/preload.js"
     }
   });
 
   mainWindow.loadFile("index.html");
-  miniWindow.loadFile("mini.html");
 }
 
-app.whenReady().then(createWindows);
+function createMiniWindow() {
+  if (miniWindow) {
+    miniWindow.focus();
+    return;
+  }
+
+  miniWindow = new BrowserWindow({
+    width: 220,
+    height: 140,
+    alwaysOnTop: true,
+    resizable: false,
+    webPreferences: {
+      preload: __dirname + "/preload.js"
+    }
+  });
+
+  miniWindow.loadFile("mini.html");
+
+  miniWindow.on("closed", () => {
+    miniWindow = null;
+  });
+}
+
+ipcMain.on("open-mini-window", () => {
+  createMiniWindow();
+});
+
+app.whenReady().then(createMainWindow);
