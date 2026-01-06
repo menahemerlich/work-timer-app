@@ -4,14 +4,29 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-  "start": "electron ."
-}
-,
+    "start": "electron .",
+    "build": "electron-builder"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "electron": "^39.2.7"
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+  "appId": "com.worktimer.app",
+  "productName": "Work Timer",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "**/*"
+  ],
+  "win": {
+    "target": "portable"
   }
+}
+
 }
