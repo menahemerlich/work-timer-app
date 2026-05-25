@@ -156,6 +156,13 @@
   color: #92400e;
 }
 
+.employer-chip[hidden],
+.session-note-btn[hidden],
+.timer-stage[data-state="idle"] .employer-chip,
+.timer-stage[data-state="idle"] .session-note-btn {
+  display: none !important;
+}
+
 .session-note-btn {
   position: absolute;
   right: 0;

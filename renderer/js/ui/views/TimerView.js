@@ -38,13 +38,13 @@ export class TimerView {
       });
     }
 
-    if (snapshot.employerName) {
-      this.setEmployerChip(snapshot.employerName);
-    } else {
-      this.hideEmployerChip();
-    }
-
     if (snapshot.isRunning) {
+      if (snapshot.employerName) {
+        this.setEmployerChip(snapshot.employerName);
+      } else {
+        this.hideEmployerChip();
+      }
+
       this.startBtn.disabled = true;
       this.pauseBtn.disabled = false;
       this.stopBtn.disabled = false;
