@@ -1,0 +1,134 @@
+.filters-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  flex: 1;
+  min-width: 160px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  background: white;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 2px solid #f3e8ff;
+}
+
+th,
+td {
+  padding: 12px 10px;
+  text-align: center;
+  border-bottom: 1px solid #f3e8ff;
+}
+
+th {
+  background: linear-gradient(180deg, #faf5ff, #f5f3ff);
+  font-weight: 700;
+  color: #6d28d9;
+  font-size: 12px;
+}
+
+tbody tr {
+  transition: background 0.15s ease;
+}
+
+tbody tr:hover {
+  background: #fdf4ff;
+}
+
+tbody tr:nth-child(even) {
+  background: rgba(250, 245, 255, 0.5);
+}
+
+tbody tr:nth-child(even):hover {
+  background: #fdf4ff;
+}
+
+.summary-row {
+  background: linear-gradient(90deg, #ede9fe, #fce7f3) !important;
+  font-weight: 700;
+  color: #5b21b6;
+}
+
+.summary-row td {
+  border-bottom: none;
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.employer-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f3e8ff;
+  color: #6d28d9;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.note-cell {
+  width: 52px;
+}
+
+.note-empty {
+  color: #d1d5db;
+  font-size: 12px;
+}
+
+.note-indicator {
+  width: 28px;
+  height: 28px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fde68a, #f59e0b);
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(245, 158, 11, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.note-indicator:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(245, 158, 11, 0.32);
+}
+
+.table-card .empty-state {
+  display: block;
+}
+
+.table-card.has-logs .empty-state {
+  display: none;
+}
+
+.table-card .table-wrap {
+  display: none;
+}
+
+.table-card.has-logs .table-wrap {
+  display: block;
+}
+
+#logsTable {
+  display: table;
+  width: 100%;
+}
+
+.table-card:not(.has-logs) #logsTable {
+  display: none;
+}

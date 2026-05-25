@@ -1,8 +1,8 @@
 {
   "name": "work-timer-app",
-  "version": "1.0.0",
-  "description": "",
-  "main": "main.js",
+  "version": "2.0.0",
+  "description": "Work timer with employer tracking",
+  "main": "main/main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder"
@@ -16,17 +16,21 @@
     "electron-builder": "^26.0.12"
   },
   "build": {
-  "appId": "com.worktimer.app",
-  "productName": "Work Timer",
-  "directories": {
-    "output": "dist"
-  },
-  "files": [
-    "**/*"
-  ],
-  "win": {
-    "target": "portable"
+    "appId": "com.worktimer.app",
+    "productName": "Work Timer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main/**/*",
+      "renderer/**/*",
+      "mini/**/*",
+      "preload/**/*",
+      "shared/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable"
+    }
   }
-}
-
 }

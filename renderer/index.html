@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>טיימר שעות עבודה</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/base.css" />
+  <link rel="stylesheet" href="styles/tabs.css" />
+  <link rel="stylesheet" href="styles/timer.css" />
+  <link rel="stylesheet" href="styles/reports.css" />
+  <link rel="stylesheet" href="styles/settings.css" />
+  <link rel="stylesheet" href="styles/modal.css" />
+</head>
+<body>
+  <div class="bg-blobs" aria-hidden="true">
+    <span class="blob blob-1"></span>
+    <span class="blob blob-2"></span>
+    <span class="blob blob-3"></span>
+  </div>
+
+  <div class="app-shell">
+    <div class="card">
+      <div class="card-inner">
+        <header class="header">
+          <div class="title-block">
+            <div class="app-logo">⏰</div>
+            <div>
+              <h1>טיימר שעות עבודה</h1>
+              <div class="subtitle">ניהול זמן עבודה לפי מעסיק — בקלות ובחיוך</div>
+            </div>
+          </div>
+          <div class="status-badge" id="statusBadge">
+            <span class="status-dot"></span>
+            <span id="statusLabel">ממתין</span>
+          </div>
+        </header>
+
+        <nav class="tab-nav">
+          <button type="button" class="tab-btn active" data-tab="timer">
+            <span class="tab-icon">⏱️</span> טיימר
+          </button>
+          <button type="button" class="tab-btn" data-tab="reports">
+            <span class="tab-icon">📊</span> דוחות
+          </button>
+          <button type="button" class="tab-btn" data-tab="settings">
+            <span class="tab-icon">⚙️</span> הגדרות
+          </button>
+        </nav>
+
+        <div class="tab-content-host">
+        <section class="tab-panel active" data-panel="timer">
+          <div class="timer-stage" id="timerStage" data-state="idle">
+            <div class="timer-hero">
+              <aside class="employer-chip" id="employerBadge" hidden>
+                <div class="employer-chip-inner">
+                  <span class="employer-chip-initial" id="employerInitial"></span>
+                  <div class="employer-chip-text">
+                    <span class="employer-chip-label">מעסיק</span>
+                    <span class="employer-chip-name" id="employerName"></span>
+                  </div>
+                </div>
+              </aside>
+              <div class="time-display-shell">
+                <div class="time-display-blob time-display-blob-1" aria-hidden="true"></div>
+                <div class="time-display-blob time-display-blob-2" aria-hidden="true"></div>
+                <div class="time-display-card">
+                  <div class="time-display" id="elapsedTime">00:00:00</div>
+                  <div class="time-hint" id="timerHint">מוכן להתחלה</div>
+                </div>
+              </div>
+              <button type="button" class="session-note-btn" id="sessionNoteBtn" hidden aria-label="הוסף הערה">
+                <span class="session-note-icon">!</span>
+                <span class="session-note-label">הערה</span>
+              </button>
+            </div>
+
+            <div class="info-row">
+              <div class="info-card info-card-start">
+                <div class="info-icon-wrap">🌅</div>
+                <div class="info-label">שעת התחלה</div>
+                <div class="info-value" id="startTimeDisplay">-</div>
+              </div>
+              <div class="info-card info-card-duration">
+                <div class="info-icon-wrap">✨</div>
+                <div class="info-label">משך נוכחי</div>
+                <div class="info-value" id="durationDisplay">-</div>
+              </div>
+            </div>
+
+            <div class="timer-controls">
+              <div class="buttons-row primary-actions">
+                <button type="button" class="btn-action btn-start" id="startBtn">
+                  <span class="btn-icon">▶</span> התחלה
+                </button>
+                <button type="button" class="btn-action btn-pause" id="pauseBtn" disabled>
+                  <span class="btn-icon" id="pauseLabel">⏸ השהיה</span>
+                </button>
+                <button type="button" class="btn-action btn-stop" id="stopBtn" disabled>
+                  <span class="btn-icon">■</span> סיום
+                </button>
+              </div>
+
+              <div class="buttons-row mini-window-row">
+                <button type="button" class="btn-soft btn-lavender" id="openMiniBtn">🪟 חלון קטן</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="reports">
+          <div class="panel-card filters-card">
+            <div class="section-title">🔍 סינון דוחות</div>
+            <div class="filters-row">
+              <div class="filter-group">
+                <label class="field-label" for="employerFilter">מעסיק</label>
+                <select id="employerFilter" class="field-input"></select>
+              </div>
+              <div class="filter-group">
+                <label class="field-label" for="dateFrom">מתאריך</label>
+                <input type="date" id="dateFrom" class="field-input" />
+              </div>
+              <div class="filter-group">
+                <label class="field-label" for="dateTo">עד תאריך</label>
+                <input type="date" id="dateTo" class="field-input" />
+              </div>
+            </div>
+          </div>
+
+          <div class="buttons-row">
+            <button type="button" class="btn-action btn-start" id="addManualLogBtn">+ הוסף דוח ידני</button>
+          </div>
+
+          <div class="panel-card table-card">
+            <div id="noLogsMsg" class="empty-state">
+              <div class="empty-icon">📝</div>
+              <p>אין עדיין דוחות — התחל לעבוד!</p>
+            </div>
+
+            <div class="table-wrap">
+              <table id="logsTable">
+                <thead>
+                  <tr>
+                    <th>תאריך</th>
+                    <th>התחלה</th>
+                    <th>סיום</th>
+                    <th>משך</th>
+                    <th>מעסיק</th>
+                    <th>הערה</th>
+                    <th>פעולות</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+                <tfoot>
+                  <tr class="summary-row">
+                    <td colspan="7">סה"כ: <span id="totalDuration">00:00:00</span></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel-card" id="monthlySummaryBox" style="display:none;">
+            <div class="section-title">📦 סיכום החודש</div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>מעסיק</th>
+                    <th>ימי עבודה</th>
+                    <th>סה"כ שעות</th>
+                  </tr>
+                </thead>
+                <tbody id="monthlySummaryBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="buttons-row">
+            <button type="button" class="btn-soft btn-lavender" id="exportFilteredBtn">💾 ייצוא CSV</button>
+            <button type="button" class="btn-soft btn-purple" id="exportEndDayBtn">🌙 סוף יום</button>
+            <button type="button" class="btn-soft btn-sky" id="exportCurrentMonthBtn">🗓️ החודש</button>
+          </div>
+
+          <div class="buttons-row">
+            <button type="button" class="btn-soft btn-peach" id="loadFromFileBtn">📂 טעינת CSV</button>
+            <button type="button" class="btn-soft btn-mint" id="exportBackupBtn">📦 גיבוי</button>
+            <button type="button" class="btn-soft btn-peach" id="importBackupBtn">📥 שחזור</button>
+            <button type="button" class="btn-soft btn-danger-soft" id="resetBtn">🗑️ איפוס</button>
+          </div>
+
+          <input type="file" id="fileInput" accept=".csv" hidden />
+          <input type="file" id="backupInput" accept=".json" hidden />
+        </section>
+
+        <section class="tab-panel" data-panel="settings">
+          <div class="panel-card" id="settingsPanel">
+            <div class="section-title">🏢 ניהול מעסיקים</div>
+            <p class="settings-hint">הקלד שם מעסיק ולחץ «הוסף» — הוא יופיע ברשימה למטה.</p>
+            <div id="settingsFeedback" class="settings-feedback" hidden></div>
+            <div class="settings-form">
+              <input type="text" id="employerNameInput" class="field-input" placeholder="לדוגמה: חברת ABC" autocomplete="off" />
+              <button type="button" class="btn-action btn-start" id="addEmployerBtn">+ הוסף</button>
+            </div>
+            <div id="employersList"></div>
+          </div>
+        </section>
+        </div>
+
+        <footer class="footer-hint">💡 הנתונים נשמרים מקומית · גיבוי ושחזור ב-JSON</footer>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="appModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" data-modal-title></div>
+        <button type="button" class="modal-close" data-modal-close aria-label="סגור">×</button>
+      </div>
+      <div class="modal-body" data-modal-body></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-soft" id="modalCancel" data-modal-cancel>ביטול</button>
+        <button type="button" class="btn-action btn-lavender-solid" id="modalConfirm" data-modal-confirm>אישור</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

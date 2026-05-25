@@ -1,0 +1,68 @@
+.tab-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  color: var(--text-soft);
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.tab-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.6);
+  transform: none;
+  filter: none;
+}
+
+.tab-btn.active {
+  background: white;
+  color: #7c3aed;
+  box-shadow: var(--shadow-sm);
+  border: 2px solid #f3e8ff;
+}
+
+.tab-icon {
+  font-size: 15px;
+}
+
+.tab-content-host {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-panel {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.tab-panel[data-panel="reports"].active,
+.tab-panel[data-panel="settings"].active {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-inline-end: 4px;
+}
