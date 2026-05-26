@@ -159,9 +159,9 @@ export class ReportsView {
     return table;
   }
 
-  createDayFolder(dateStr, logs, { expanded, onToggle, handlers }) {
+  createDayFolder(dateStr, logs, { expanded, onToggle, handlers, nested = false }) {
     const wrap = document.createElement("div");
-    wrap.className = "log-folder log-folder-day";
+    wrap.className = `log-folder log-folder-day${nested ? " log-folder-day-nested" : ""}`;
 
     const trigger = document.createElement("button");
     trigger.type = "button";
@@ -176,15 +176,29 @@ export class ReportsView {
 
     const content = document.createElement("div");
     content.className = `folder-content${expanded ? "" : " is-collapsed"}`;
-    content.appendChild(this.createLogsTable(logs, handlers));
+
+    const branch = document.createElement("div");
+    branch.className = `folder-branch folder-branch-open${nested ? " folder-branch-nested" : ""}`;
+
+    const context = document.createElement("p");
+    context.className = "folder-open-context";
+    context.textContent = `דוחות מ־${dateStr}`;
+
+    branch.append(context, this.createLogsTable(logs, handlers));
+    content.appendChild(branch);
 
     trigger.addEventListener("click", () => {
       const isOpen = content.classList.toggle("is-collapsed");
       const nowExpanded = !isOpen;
       trigger.classList.toggle("is-open", nowExpanded);
+      wrap.classList.toggle("is-expanded", nowExpanded);
       trigger.setAttribute("aria-expanded", String(nowExpanded));
       onToggle?.(dateStr, nowExpanded);
     });
+
+    if (expanded) {
+      wrap.classList.add("is-expanded");
+    }
 
     wrap.append(trigger, content);
     return wrap;
@@ -207,25 +221,44 @@ export class ReportsView {
     `;
 
     const content = document.createElement("div");
-    content.className = `folder-content folder-content-nested${expanded ? "" : " is-collapsed"}`;
+    content.className = `folder-content folder-content-month${expanded ? "" : " is-collapsed"}`;
+
+    const branch = document.createElement("div");
+    branch.className = "folder-branch";
+
+    const branchLabel = document.createElement("div");
+    branchLabel.className = "folder-branch-label";
+    branchLabel.textContent = `ימים ב־${monthLabel}`;
+
+    const daysRow = document.createElement("div");
+    daysRow.className = "folder-days-row";
 
     days.forEach((day) => {
-      content.appendChild(
+      daysRow.appendChild(
         this.createDayFolder(day.dateStr, day.logs, {
           expanded: expandedDays.has(day.dateStr),
           onToggle: onToggleDay,
-          handlers
+          handlers,
+          nested: true
         })
       );
     });
+
+    branch.append(branchLabel, daysRow);
+    content.appendChild(branch);
 
     trigger.addEventListener("click", () => {
       const isOpen = content.classList.toggle("is-collapsed");
       const nowExpanded = !isOpen;
       trigger.classList.toggle("is-open", nowExpanded);
+      wrap.classList.toggle("is-expanded", nowExpanded);
       trigger.setAttribute("aria-expanded", String(nowExpanded));
       onToggle?.(monthKey, nowExpanded);
     });
+
+    if (expanded) {
+      wrap.classList.add("is-expanded");
+    }
 
     wrap.append(trigger, content);
     return wrap;
@@ -276,28 +309,60 @@ export class ReportsView {
       this.logsTable.style.display = "none";
     }
 
-    archiveItems.forEach((item) => {
-      if (item.type === "day") {
-        this.logsArchive.appendChild(
+    const dayItems = archiveItems.filter((item) => item.type === "day");
+    const monthItems = archiveItems.filter((item) => item.type === "month");
+
+    if (dayItems.length) {
+      const daysSection = document.createElement("div");
+      daysSection.className = "archive-section archive-section-days";
+
+      const daysLabel = document.createElement("div");
+      daysLabel.className = "archive-section-label";
+      daysLabel.textContent = "ימים קודמים";
+
+      const daysRow = document.createElement("div");
+      daysRow.className = "archive-days-row";
+
+      dayItems.forEach((item) => {
+        daysRow.appendChild(
           this.createDayFolder(item.dateStr, item.logs, {
             expanded: expandedDays.has(item.dateStr),
             onToggle: onToggleDay,
             handlers
           })
         );
-        return;
-      }
+      });
 
-      this.logsArchive.appendChild(
-        this.createMonthFolder(item, {
-          expanded: expandedMonths.has(item.monthKey),
-          onToggle: onToggleMonth,
-          handlers,
-          expandedDays,
-          onToggleDay
-        })
-      );
-    });
+      daysSection.append(daysLabel, daysRow);
+      this.logsArchive.appendChild(daysSection);
+    }
+
+    if (monthItems.length) {
+      const monthsSection = document.createElement("div");
+      monthsSection.className = "archive-section archive-section-months";
+
+      const monthsLabel = document.createElement("div");
+      monthsLabel.className = "archive-section-label archive-section-label-month";
+      monthsLabel.textContent = "חודשים קודמים";
+
+      const monthsRow = document.createElement("div");
+      monthsRow.className = "archive-months-row";
+
+      monthItems.forEach((item) => {
+        monthsRow.appendChild(
+          this.createMonthFolder(item, {
+            expanded: expandedMonths.has(item.monthKey),
+            onToggle: onToggleMonth,
+            handlers,
+            expandedDays,
+            onToggleDay
+          })
+        );
+      });
+
+      monthsSection.append(monthsLabel, monthsRow);
+      this.logsArchive.appendChild(monthsSection);
+    }
   }
 
   renderTotal(totalStr) {
