@@ -61,7 +61,7 @@ export class SettingsController {
       return;
     }
 
-    this.employerRepo.add(Employer.create(name, generateId));
+    this.employerRepo.add(Employer.create(name, generateId, this.employerRepo.getAll().length));
     this.view.clearInput();
     this.editingEmployerId = null;
     this.refresh();

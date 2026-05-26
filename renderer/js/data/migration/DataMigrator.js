@@ -1,12 +1,22 @@
 import { UNKNOWN_EMPLOYER } from "../../../../shared/constants/storageKeys.js";
 import { WorkLog } from "../../core/models/WorkLog.js";
 import { generateId } from "../../core/utils/uuid.js";
+import { assignMissingEmployerColors } from "../../core/utils/employerColors.js";
+import { Employer } from "../../core/models/Employer.js";
 
 export class DataMigrator {
   static run({ logRepo, settingsRepo }) {
     const settings = settingsRepo.getSettings();
     if (!settings.employers) {
       settingsRepo.saveSettings({ employers: [], lastSelectedEmployerId: null });
+    }
+
+    const colorMigration = assignMissingEmployerColors(settings.employers || []);
+    if (colorMigration.changed) {
+      settingsRepo.saveSettings({
+        ...settings,
+        employers: colorMigration.employers.map((item) => new Employer(item))
+      });
     }
 
     const logs = logRepo.getAll();

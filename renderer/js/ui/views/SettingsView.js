@@ -67,10 +67,22 @@ export class SettingsView {
           }
         });
       } else {
+        const nameRow = document.createElement("div");
+        nameRow.className = "employer-name-row";
+
+        if (employer.color) {
+          const swatch = document.createElement("span");
+          swatch.className = "employer-color-swatch";
+          swatch.style.backgroundColor = employer.color;
+          swatch.title = "צבע בדוחות";
+          nameRow.appendChild(swatch);
+        }
+
         const nameEl = document.createElement("span");
         nameEl.className = "employer-name";
         nameEl.textContent = employer.name;
-        nameBlock.appendChild(nameEl);
+        nameRow.appendChild(nameEl);
+        nameBlock.appendChild(nameRow);
       }
 
       const actions = document.createElement("div");

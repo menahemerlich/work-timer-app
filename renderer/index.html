@@ -111,9 +111,15 @@
           <div class="panel-card filters-card">
             <div class="section-title">🔍 סינון דוחות</div>
             <div class="filters-row">
-              <div class="filter-group">
-                <label class="field-label" for="employerFilter">מעסיק</label>
-                <select id="employerFilter" class="field-input"></select>
+              <div class="filter-group filter-group-employers">
+                <div class="filter-label-row">
+                  <span class="field-label">מעסיקים</span>
+                  <div class="employer-filter-actions">
+                    <button type="button" class="link-btn" id="employerFilterSelectAll">הכל</button>
+                    <button type="button" class="link-btn" id="employerFilterClearAll">נקה</button>
+                  </div>
+                </div>
+                <div id="employerFilterChips" class="employer-filter-chips"></div>
               </div>
               <div class="filter-group">
                 <label class="field-label" for="dateFrom">מתאריך</label>
@@ -131,9 +137,14 @@
           </div>
 
           <div class="panel-card table-card">
+            <div class="today-logs-header">
+              <div class="section-title section-title-inline">📅 היום</div>
+              <span id="todayDateLabel" class="today-date-label"></span>
+            </div>
+
             <div id="noLogsMsg" class="empty-state">
               <div class="empty-icon">📝</div>
-              <p>אין עדיין דוחות — התחל לעבוד!</p>
+              <p>אין דוחות להיום</p>
             </div>
 
             <div class="table-wrap">
@@ -157,10 +168,24 @@
                 </tfoot>
               </table>
             </div>
+
+            <div id="logsArchive" class="logs-archive" hidden></div>
           </div>
 
           <div class="panel-card" id="monthlySummaryBox" style="display:none;">
-            <div class="section-title">📦 סיכום החודש</div>
+            <div class="summary-header">
+              <div class="section-title">📦 סיכום החודש</div>
+              <div class="filter-group summary-filter filter-group-employers">
+                <div class="filter-label-row">
+                  <span class="field-label">מעסיקים</span>
+                  <div class="employer-filter-actions">
+                    <button type="button" class="link-btn" id="monthlySummarySelectAll">הכל</button>
+                    <button type="button" class="link-btn" id="monthlySummaryClearAll">נקה</button>
+                  </div>
+                </div>
+                <div id="monthlySummaryEmployerChips" class="employer-filter-chips"></div>
+              </div>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>

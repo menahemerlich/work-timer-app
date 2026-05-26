@@ -6,6 +6,8 @@ import {
 } from "../../core/utils/dateParse.js";
 import { formatDuration } from "../../core/utils/timeFormat.js";
 import { generateId } from "../../core/utils/uuid.js";
+import { resolveEmployerColor } from "../../core/utils/employerColors.js";
+import { buildLogsArchiveStructure } from "../../core/utils/logGrouping.js";
 import { confirmDialog } from "../components/ConfirmDialog.js";
 
 export class ReportsController {
@@ -29,10 +31,27 @@ export class ReportsController {
     this.csvExporter = csvExporter;
     this.csvImporter = csvImporter;
     this.jsonBackupService = jsonBackupService;
+    this.expandedDays = new Set();
+    this.expandedMonths = new Set();
   }
 
   init() {
-    this.view.employerFilter.addEventListener("change", () => this.refresh());
+    this.view.employerFilterSelectAll?.addEventListener("click", () => {
+      this.view.setAllEmployerChipsChecked(this.view.employerFilterChips, true);
+      this.refresh();
+    });
+    this.view.employerFilterClearAll?.addEventListener("click", () => {
+      this.view.setAllEmployerChipsChecked(this.view.employerFilterChips, false);
+      this.refresh();
+    });
+    this.view.monthlySummarySelectAll?.addEventListener("click", () => {
+      this.view.setAllEmployerChipsChecked(this.view.monthlySummaryEmployerChips, true);
+      this.refresh();
+    });
+    this.view.monthlySummaryClearAll?.addEventListener("click", () => {
+      this.view.setAllEmployerChipsChecked(this.view.monthlySummaryEmployerChips, false);
+      this.refresh();
+    });
     this.view.dateFrom.addEventListener("change", () => this.refresh());
     this.view.dateTo.addEventListener("change", () => this.refresh());
     this.view.addManualLogBtn?.addEventListener("click", () => this.handleAddManual());
@@ -52,9 +71,17 @@ export class ReportsController {
 
   getFilters() {
     return {
-      employerFilter: this.view.employerFilter.value,
+      employerFilters: this.view.getSelectedEmployerFilters(this.view.employerFilterChips),
       dateFrom: this.view.dateFrom.value || null,
       dateTo: this.view.dateTo.value || null
+    };
+  }
+
+  getMonthlySummaryFilters() {
+    return {
+      employerFilters: this.view.getSelectedEmployerFilters(this.view.monthlySummaryEmployerChips),
+      dateFrom: null,
+      dateTo: null
     };
   }
 
@@ -63,57 +90,115 @@ export class ReportsController {
     return this.applyEmployerFilter(allLogs, this.getFilters());
   }
 
-  applyEmployerFilter(logs, filters) {
-    const { employerFilter, dateFrom, dateTo } = filters;
+  getEmployerColorForLog(log) {
+    return resolveEmployerColor(log, this.employerRepo.getAll());
+  }
 
-    if (employerFilter === "all") {
-      return this.reportService.filterLogs(logs, { employerFilter: "all", dateFrom, dateTo });
+  getEmployerColorByName(name) {
+    return resolveEmployerColor({ employerName: name }, this.employerRepo.getAll());
+  }
+
+  logMatchesEmployerFilter(log, filter) {
+    if (filter.startsWith("name:")) {
+      return log.employerName === filter.slice(5);
     }
 
-    if (employerFilter.startsWith("name:")) {
-      const name = employerFilter.slice(5);
-      return logs.filter((log) => {
-        if (log.employerName !== name) {
-          return false;
-        }
-        return this.reportService.filterLogs([log], { employerFilter: "all", dateFrom, dateTo }).length > 0;
-      });
-    }
-
-    const employer = this.employerRepo.getById(employerFilter);
+    const employer = this.employerRepo.getById(filter);
     if (employer) {
-      return this.reportService.filterLogs(logs, { employerFilter: "all", dateFrom, dateTo }).filter(
-        (log) => log.employerId === employer.id || log.employerName === employer.name
-      );
+      return log.employerId === employer.id || log.employerName === employer.name;
     }
 
-    return this.reportService.filterLogs(logs, { employerFilter: "all", dateFrom, dateTo });
+    return false;
+  }
+
+  shouldFilterByEmployers(selectedFilters, totalOptions) {
+    return selectedFilters.length > 0 && selectedFilters.length < totalOptions;
+  }
+
+  applyEmployerFilter(logs, filters) {
+    const { employerFilters = [], dateFrom, dateTo } = filters;
+    const dateFiltered = this.reportService.filterLogs(logs, {
+      employerFilter: "all",
+      dateFrom,
+      dateTo
+    });
+
+    if (!this.shouldFilterByEmployers(employerFilters, filters.totalOptions ?? employerFilters.length)) {
+      return dateFiltered;
+    }
+
+    return dateFiltered.filter((log) =>
+      employerFilters.some((filter) => this.logMatchesEmployerFilter(log, filter))
+    );
   }
 
   refresh() {
     const allLogs = this.logRepo.getAll();
     const activeEmployers = this.employerRepo.getAll();
-    const filterOptions = this.reportService.getEmployerFilterOptions(allLogs, activeEmployers);
-    const currentValue = this.view.employerFilter.value || "all";
-    this.view.setEmployerFilterOptions(filterOptions, activeEmployers);
+    const orphanNames = this.reportService.getEmployerFilterOptions(allLogs, activeEmployers);
+    const filterItems = this.view.buildFilterItems(activeEmployers, orphanNames);
+    const onFilterChange = () => this.refresh();
 
-    const hasOption = Array.from(this.view.employerFilter.options).some(
-      (option) => option.value === currentValue
+    const selectedReports = this.view.getSelectedEmployerFilters(this.view.employerFilterChips);
+    this.view.renderEmployerFilterChips(
+      this.view.employerFilterChips,
+      filterItems,
+      selectedReports,
+      onFilterChange
     );
-    this.view.employerFilter.value = hasOption ? currentValue : "all";
 
-    const filteredLogs = this.getFilteredLogs();
-    this.view.renderLogs(filteredLogs, {
+    const selectedMonthly = this.view.getSelectedEmployerFilters(this.view.monthlySummaryEmployerChips);
+    this.view.renderEmployerFilterChips(
+      this.view.monthlySummaryEmployerChips,
+      filterItems,
+      selectedMonthly,
+      onFilterChange
+    );
+
+    const reportFilters = this.getFilters();
+    reportFilters.totalOptions = filterItems.length;
+    const filteredLogs = this.applyEmployerFilter(allLogs, reportFilters);
+    const logHandlers = {
       onEdit: (log) => this.handleEdit(log),
       onDelete: (log) => this.handleDelete(log),
-      onShowNote: (log) => this.handleShowNote(log)
+      onShowNote: (log) => this.handleShowNote(log),
+      getEmployerColor: (log) => this.getEmployerColorForLog(log)
+    };
+    const archiveStructure = buildLogsArchiveStructure(filteredLogs);
+
+    this.view.renderGroupedLogs({
+      ...archiveStructure,
+      expandedDays: this.expandedDays,
+      expandedMonths: this.expandedMonths,
+      onToggleDay: (dateStr, isOpen) => {
+        if (isOpen) {
+          this.expandedDays.add(dateStr);
+        } else {
+          this.expandedDays.delete(dateStr);
+        }
+      },
+      onToggleMonth: (monthKey, isOpen) => {
+        if (isOpen) {
+          this.expandedMonths.add(monthKey);
+        } else {
+          this.expandedMonths.delete(monthKey);
+        }
+      },
+      handlers: logHandlers
     });
 
-    const totalMs = this.reportService.getTotalDurationMs(filteredLogs);
+    const totalMs = this.reportService.getTotalDurationMs(archiveStructure.todayLogs);
     this.view.renderTotal(formatDuration(totalMs));
 
     const monthLogs = this.reportService.getCurrentMonthLogs(allLogs);
-    this.view.renderMonthlySummary(this.reportService.getSummaryByEmployer(monthLogs));
+    const monthlyFilters = this.getMonthlySummaryFilters();
+    monthlyFilters.totalOptions = filterItems.length;
+    const filteredMonthLogs = this.applyEmployerFilter(monthLogs, monthlyFilters);
+
+    this.view.renderMonthlySummary(this.reportService.getSummaryByEmployer(filteredMonthLogs), {
+      hasMonthData: monthLogs.length > 0,
+      getEmployerColorByName: (name) => this.getEmployerColorByName(name)
+    });
   }
 
   buildLogFormHtml({ log, employers, requireEmployer = false }) {
@@ -283,31 +368,129 @@ export class ReportsController {
     });
   }
 
-  exportFiltered() {
-    const logs = this.getFilteredLogs();
-    const result = this.csvExporter.exportLogs(logs, "שעות_עבודה_מסונן.csv");
-    if (!result.success) {
-      alert(result.message);
+  getFilterItems() {
+    const allLogs = this.logRepo.getAll();
+    const activeEmployers = this.employerRepo.getAll();
+    const orphanNames = this.reportService.getEmployerFilterOptions(allLogs, activeEmployers);
+    return this.view.buildFilterItems(activeEmployers, orphanNames);
+  }
+
+  getDateOnlyFilteredLogs() {
+    return this.applyEmployerFilter(this.logRepo.getAll(), {
+      employerFilters: [],
+      dateFrom: this.view.dateFrom.value || null,
+      dateTo: this.view.dateTo.value || null,
+      totalOptions: 0
+    });
+  }
+
+  buildExportEmployerPickerHtml(hint) {
+    return `
+      <p class="modal-hint">${hint}</p>
+      <div class="filter-label-row">
+        <span class="field-label">מעסיקים</span>
+        <div class="employer-filter-actions">
+          <button type="button" class="link-btn" id="exportPickerSelectAll">הכל</button>
+          <button type="button" class="link-btn" id="exportPickerClearAll">נקה</button>
+        </div>
+      </div>
+      <p class="modal-hint modal-hint-small">לא נבחר אף מעסיק = ייצוא של כולם</p>
+      <div id="exportEmployerChips" class="employer-filter-chips employer-filter-chips-modal"></div>
+    `;
+  }
+
+  bindExportPickerActions(filterItems, preselected = []) {
+    const chipsEl = document.getElementById("exportEmployerChips");
+    this.view.renderEmployerFilterChips(chipsEl, filterItems, preselected, () => {});
+
+    document.getElementById("exportPickerSelectAll")?.addEventListener("click", () => {
+      this.view.setAllEmployerChipsChecked(chipsEl, true);
+    });
+    document.getElementById("exportPickerClearAll")?.addEventListener("click", () => {
+      this.view.setAllEmployerChipsChecked(chipsEl, false);
+    });
+  }
+
+  readExportEmployerSelection() {
+    return this.view.getSelectedEmployerFilters(document.getElementById("exportEmployerChips"));
+  }
+
+  showExportEmployerModal({ title, hint, logs, fileName, emptyMessage }) {
+    const filterItems = this.getFilterItems();
+    if (!filterItems.length) {
+      alert("אין מעסיקים — הוסף מעסיק בהגדרות.");
+      return;
     }
+
+    if (!logs.length) {
+      alert(emptyMessage);
+      return;
+    }
+
+    const preselected = this.view.getSelectedEmployerFilters(this.view.employerFilterChips);
+
+    this.modal.show({
+      title,
+      bodyHtml: this.buildExportEmployerPickerHtml(hint),
+      confirmText: "ייצוא",
+      onConfirm: () => {
+        const selected = this.readExportEmployerSelection();
+        const filtered = this.applyEmployerFilter(logs, {
+          employerFilters: selected,
+          totalOptions: filterItems.length
+        });
+
+        if (!filtered.length) {
+          this.modal.showFeedback("אין דוחות למעסיקים שנבחרו.");
+          return;
+        }
+
+        const result = this.csvExporter.exportLogs(filtered, fileName);
+        if (!result.success) {
+          this.modal.showFeedback(result.message || "לא ניתן לייצא.");
+          return;
+        }
+
+        this.modal.hide();
+      }
+    });
+
+    this.bindExportPickerActions(filterItems, preselected);
+  }
+
+  exportFiltered() {
+    this.showExportEmployerModal({
+      title: "ייצוא CSV",
+      hint: "בחר מעסיקים לייצוא לפי הסינון הנוכחי (תאריכים).",
+      logs: this.getDateOnlyFilteredLogs(),
+      fileName: "שעות_עבודה_מסונן.csv",
+      emptyMessage: "אין דוחות בטווח התאריכים שנבחר."
+    });
   }
 
   exportEndDay() {
-    const logs = this.reportService.getTodayLogs(this.getFilteredLogs());
+    const logs = this.reportService.getTodayLogs(this.getDateOnlyFilteredLogs());
     const today = new Date().toLocaleDateString("he-IL");
-    const result = this.csvExporter.exportLogs(logs, `שעות_עבודה_סוף_יום_${today}.csv`);
-    if (!result.success) {
-      alert("אין נתוני עבודה להיום.");
-    }
+    this.showExportEmployerModal({
+      title: "ייצוא סוף יום",
+      hint: "בחר מעסיקים לייצוא דוחות היום.",
+      logs,
+      fileName: `שעות_עבודה_סוף_יום_${today}.csv`,
+      emptyMessage: "אין נתוני עבודה להיום."
+    });
   }
 
   exportCurrentMonth() {
-    const logs = this.reportService.getCurrentMonthLogs(this.getFilteredLogs());
+    const logs = this.reportService.getCurrentMonthLogs(this.getDateOnlyFilteredLogs());
     const now = new Date();
     const fileName = `שעות_עבודה_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}.csv`;
-    const result = this.csvExporter.exportLogs(logs, fileName);
-    if (!result.success) {
-      alert("אין נתוני עבודה לחודש הנוכחי.");
-    }
+    this.showExportEmployerModal({
+      title: "ייצוא החודש",
+      hint: "בחר מעסיקים לייצוא דוחות החודש הנוכחי.",
+      logs,
+      fileName,
+      emptyMessage: "אין נתוני עבודה לחודש הנוכחי."
+    });
   }
 
   handleCsvImport(event) {

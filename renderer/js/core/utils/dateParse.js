@@ -23,6 +23,52 @@ export function isToday(dateStr, referenceDate = new Date()) {
   return dateStr === referenceDate.toLocaleDateString("he-IL");
 }
 
+export function compareHebrewDatesDesc(a, b) {
+  const parsedA = parseHebrewDate(a);
+  const parsedB = parseHebrewDate(b);
+  if (!parsedA && !parsedB) {
+    return 0;
+  }
+  if (!parsedA) {
+    return 1;
+  }
+  if (!parsedB) {
+    return -1;
+  }
+  return parsedB.date - parsedA.date;
+}
+
+const HEBREW_MONTH_NAMES = [
+  "ינואר",
+  "פברואר",
+  "מרץ",
+  "אפריל",
+  "מאי",
+  "יוני",
+  "יולי",
+  "אוגוסט",
+  "ספטמבר",
+  "אוקטובר",
+  "נובמבר",
+  "דצמבר"
+];
+
+export function getHebrewMonthLabel(month, year, referenceDate = new Date()) {
+  const name = HEBREW_MONTH_NAMES[month - 1] || "";
+  if (year !== referenceDate.getFullYear()) {
+    return `${name} ${year}`;
+  }
+  return name;
+}
+
+export function getMonthKeyFromHebrewDate(dateStr) {
+  const parsed = parseHebrewDate(dateStr);
+  if (!parsed) {
+    return null;
+  }
+  return `${parsed.year}-${parsed.month}`;
+}
+
 export function parseTimeOnDate(dateStr, timeStr) {
   const parsed = parseHebrewDate(dateStr);
   if (!parsed) {

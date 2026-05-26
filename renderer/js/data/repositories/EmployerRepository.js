@@ -30,7 +30,8 @@ export class SettingsRepository {
         employers: settings.employers.map((employer) => ({
           id: employer.id,
           name: employer.name,
-          createdAt: employer.createdAt
+          createdAt: employer.createdAt,
+          color: employer.color || null
         })),
         lastSelectedEmployerId: settings.lastSelectedEmployerId || null
       })
