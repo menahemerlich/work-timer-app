@@ -26,13 +26,13 @@ export class JsonBackupService {
     URL.revokeObjectURL(url);
   }
 
-  importBackup(text) {
+  async importBackup(text) {
     const payload = JSON.parse(text);
     if (!payload || !Array.isArray(payload.logs)) {
       throw new Error("קובץ גיבוי לא תקין.");
     }
 
-    this.settingsRepo.saveSettings({
+    this.settingsRepo.replaceAll({
       employers: (payload.settings?.employers || []).map((item) => new Employer(item)),
       lastSelectedEmployerId: payload.settings?.lastSelectedEmployerId || null
     });

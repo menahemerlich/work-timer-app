@@ -54,6 +54,10 @@ export class ReportsController {
     });
     this.view.dateFrom.addEventListener("change", () => this.refresh());
     this.view.dateTo.addEventListener("change", () => this.refresh());
+    this.view.dateFilterClear?.addEventListener("click", () => {
+      this.view.clearDateFilters();
+      this.refresh();
+    });
     this.view.addManualLogBtn?.addEventListener("click", () => this.handleAddManual());
     this.view.exportFilteredBtn.addEventListener("click", () => this.exportFiltered());
     this.view.exportEndDayBtn.addEventListener("click", () => this.exportEndDay());
@@ -517,13 +521,15 @@ export class ReportsController {
 
     const reader = new FileReader();
     reader.onload = (loadEvent) => {
-      try {
-        this.jsonBackupService.importBackup(loadEvent.target.result);
-        alert("הגיבוי שוחזר בהצלחה.");
-        this.refresh();
-      } catch (error) {
-        alert(error.message || "שגיאה בשחזור הגיבוי.");
-      }
+      void (async () => {
+        try {
+          await this.jsonBackupService.importBackup(loadEvent.target.result);
+          alert("הגיבוי שוחזר בהצלחה.");
+          this.refresh();
+        } catch (error) {
+          alert(error.message || "שגיאה בשחזור הגיבוי.");
+        }
+      })();
     };
     reader.readAsText(file, "utf-8");
     event.target.value = "";

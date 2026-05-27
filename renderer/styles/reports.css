@@ -16,6 +16,76 @@
   min-width: 200px;
 }
 
+.filters-card .section-title {
+  margin-bottom: 16px;
+}
+
+.filters-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100%;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  border: 2px solid #ede9fe;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.filter-panel-employers {
+  border-color: #ddd6fe;
+  background: linear-gradient(180deg, rgba(250, 245, 255, 0.95), rgba(255, 255, 255, 0.88));
+}
+
+.filter-panel-dates {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0.88));
+}
+
+.filter-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #e9d5ff;
+}
+
+.filter-panel-dates .filter-panel-header {
+  border-bottom-color: #dbeafe;
+}
+
+.filter-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #5b21b6;
+}
+
+.filter-panel-dates .filter-panel-title {
+  color: #1d4ed8;
+}
+
+.filter-panel-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.date-filters-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.date-filter-field .field-label {
+  margin-bottom: 6px;
+}
+
 .filter-group-employers {
   flex: 1 1 100%;
   min-width: 100%;
@@ -55,6 +125,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  min-height: 36px;
+  align-content: flex-start;
 }
 
 .filter-empty-hint {
@@ -81,6 +153,15 @@
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
 }
 
+.employer-chip-filter--no-color {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: #e5e7eb;
+}
+
+.employer-chip-filter--no-color .employer-chip-label {
+  color: #6b7280;
+}
+
 .employer-chip-filter input {
   position: absolute;
   opacity: 0;
@@ -98,12 +179,6 @@
   color: #9ca3af;
   font-style: italic;
   padding: 16px;
-}
-
-.filters-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
 }
 
 .filter-group {
@@ -161,16 +236,6 @@ tbody tr:hover {
 
 .actions-cell {
   white-space: nowrap;
-}
-
-.employer-tag {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #f3e8ff;
-  color: #6d28d9;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .note-cell {
@@ -249,8 +314,8 @@ tbody tr:hover {
 .archive-days-row,
 .archive-months-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
 }
 
@@ -260,12 +325,6 @@ tbody tr:hover {
 }
 
 .log-folder {
-  flex: 0 1 auto;
-  max-width: 100%;
-}
-
-.log-folder.is-expanded {
-  flex: 1 1 100%;
   width: 100%;
 }
 
@@ -295,7 +354,7 @@ tbody tr:hover {
   color: #6d28d9;
 }
 
-.log-folder-month .folder-trigger {
+.folder-trigger-month {
   padding: 10px 16px;
   border-radius: 12px;
   border: 2px solid #7c3aed;
@@ -305,30 +364,30 @@ tbody tr:hover {
   box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
 }
 
-.log-folder-month .folder-trigger:hover {
+.folder-trigger-month:hover {
   background: linear-gradient(135deg, #e9d5ff, #c4b5fd);
   border-color: #6d28d9;
 }
 
-.log-folder-month .folder-trigger.is-open {
+.folder-trigger-month.is-open {
   background: linear-gradient(135deg, #ddd6fe, #c4b5fd);
   border-color: #5b21b6;
   box-shadow: 0 4px 12px rgba(91, 33, 182, 0.2);
 }
 
-.log-folder-month .folder-meta {
+.folder-trigger-month .folder-meta {
   background: rgba(255, 255, 255, 0.75);
   color: #5b21b6;
   border: 1px solid rgba(124, 58, 237, 0.2);
 }
 
-.log-folder-month .folder-icon {
+.folder-trigger-month .folder-icon {
   font-size: 20px;
 }
 
 .folder-trigger {
-  width: auto;
-  display: inline-flex;
+  width: 100%;
+  display: flex;
   align-items: center;
   font-family: inherit;
   font-weight: 600;
@@ -396,10 +455,6 @@ tbody tr:hover {
   border-inline-start-color: #e9d5ff;
 }
 
-.folder-branch-open.folder-branch-nested {
-  border-inline-start-color: #ddd6fe;
-}
-
 .folder-branch::before {
   content: "";
   position: absolute;
@@ -417,10 +472,6 @@ tbody tr:hover {
   border-color: #e9d5ff;
 }
 
-.folder-branch-open.folder-branch-nested::before {
-  border-color: #ddd6fe;
-}
-
 .folder-branch-label {
   font-size: 12px;
   font-weight: 600;
@@ -431,18 +482,9 @@ tbody tr:hover {
 
 .folder-days-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
-}
-
-.log-folder-month .log-folder-day-nested {
-  flex: 0 1 auto;
-}
-
-.log-folder-day.is-expanded {
-  flex: 1 1 100%;
-  width: 100%;
 }
 
 .log-folder-month .log-folder-day-nested.is-expanded {
@@ -517,4 +559,10 @@ tbody tr:hover {
 
 .table-card:not(.has-logs) #logsTable {
   display: none;
+}
+
+@media (max-width: 700px) {
+  .filters-split {
+    grid-template-columns: 1fr;
+  }
 }

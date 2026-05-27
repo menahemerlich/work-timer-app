@@ -1,16 +1,16 @@
 import { UNKNOWN_EMPLOYER } from "../../../../shared/constants/storageKeys.js";
 
 export const EMPLOYER_COLOR_PALETTE = [
-  "#f3e8ff",
-  "#fce7f3",
-  "#dbeafe",
-  "#d1fae5",
-  "#fef3c7",
-  "#ffedd5",
-  "#e0e7ff",
-  "#ccfbf1",
-  "#fde2e4",
-  "#e9d5ff"
+  "#ddd6fe",
+  "#bbf7d0",
+  "#bae6fd",
+  "#fde68a",
+  "#fda4af",
+  "#a7f3d0",
+  "#93c5fd",
+  "#fcd34d",
+  "#f9a8d4",
+  "#5eead4"
 ];
 
 export function getEmployerColorByIndex(index) {
@@ -29,8 +29,9 @@ export function getColorForOrphanName(name) {
 export function assignMissingEmployerColors(employers) {
   let changed = false;
   employers.forEach((employer, index) => {
-    if (!employer.color) {
-      employer.color = getEmployerColorByIndex(index);
+    const nextColor = getEmployerColorByIndex(index);
+    if (employer.color !== nextColor) {
+      employer.color = nextColor;
       changed = true;
     }
   });
@@ -43,6 +44,7 @@ export function resolveEmployerColor({ employerId, employerName }, activeEmploye
     if (byId?.color) {
       return byId.color;
     }
+    return null;
   }
 
   const name = employerName || UNKNOWN_EMPLOYER;
@@ -51,5 +53,5 @@ export function resolveEmployerColor({ employerId, employerName }, activeEmploye
     return byName.color;
   }
 
-  return getColorForOrphanName(name);
+  return null;
 }

@@ -5,7 +5,9 @@
   "main": "main/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "rebuild": "electron-rebuild -f -w better-sqlite3"
   },
   "keywords": [],
   "author": "",
@@ -13,7 +15,8 @@
   "type": "commonjs",
   "devDependencies": {
     "electron": "^39.2.7",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "electron-rebuild": "^3.2.9"
   },
   "build": {
     "appId": "com.worktimer.app",
@@ -32,5 +35,10 @@
     "win": {
       "target": "portable"
     }
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
+    "better-sqlite3": "^12.10.0",
+    "dotenv": "^17.4.2"
   }
 }

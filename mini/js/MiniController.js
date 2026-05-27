@@ -1,4 +1,4 @@
-import { STORAGE_KEYS, TIMER_COMMANDS } from "../../shared/constants/storageKeys.js";
+import { TIMER_COMMANDS } from "../../shared/constants/storageKeys.js";
 
 function format(ms) {
   const sec = Math.floor(ms / 1000);
@@ -8,9 +8,21 @@ function format(ms) {
   return `${h}:${m}:${s}`;
 }
 
-function update() {
-  const raw = localStorage.getItem(STORAGE_KEYS.TIMER_STATE);
-  const state = raw ? JSON.parse(raw) : null;
+function getElapsedMs(state) {
+  if (!state) {
+    return 0;
+  }
+
+  let ms = state.elapsedMs || 0;
+  if (state.isRunning && !state.isPaused && state.segmentStartTime) {
+    ms += Date.now() - new Date(state.segmentStartTime).getTime();
+  }
+  return ms;
+}
+
+async function update() {
+  const api = window.electronAPI?.db?.timer;
+  const state = api ? await api.load() : null;
 
   const timeEl = document.getElementById("time");
   const employerEl = document.getElementById("employer");
@@ -23,7 +35,7 @@ function update() {
     return;
   }
 
-  timeEl.textContent = format(state.elapsedMs || 0);
+  timeEl.textContent = format(getElapsedMs(state));
   employerEl.textContent = state.employerName ? state.employerName : "";
 
   const hasTime = (state.elapsedMs || 0) > 0;
@@ -35,5 +47,9 @@ setInterval(update, 500);
 update();
 
 document.getElementById("toggleBtn").addEventListener("click", () => {
-  localStorage.setItem(STORAGE_KEYS.TIMER_COMMAND, TIMER_COMMANDS.TOGGLE);
+  window.electronAPI?.db?.timer?.setCommand(TIMER_COMMANDS.TOGGLE);
 });
+
+if (window.electronAPI?.db?.timer?.onCommand) {
+  window.electronAPI.db.timer.onCommand(() => update());
+}

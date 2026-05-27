@@ -1,4 +1,3 @@
-import { UNKNOWN_EMPLOYER } from "../../../../shared/constants/storageKeys.js";
 import { getColorForOrphanName } from "../../core/utils/employerColors.js";
 
 export class ReportsView {
@@ -8,6 +7,7 @@ export class ReportsView {
     this.employerFilterClearAll = document.getElementById("employerFilterClearAll");
     this.dateFrom = document.getElementById("dateFrom");
     this.dateTo = document.getElementById("dateTo");
+    this.dateFilterClear = document.getElementById("dateFilterClear");
     this.logsTableBody = document.querySelector("#logsTable tbody");
     this.noLogsMsg = document.getElementById("noLogsMsg");
     this.logsTable = document.getElementById("logsTable");
@@ -44,7 +44,7 @@ export class ReportsView {
         items.push({
           value: `name:${name}`,
           label: name,
-          color: getColorForOrphanName(name)
+          color: null
         });
       }
     });
@@ -80,7 +80,11 @@ export class ReportsView {
     items.forEach((item) => {
       const label = document.createElement("label");
       label.className = "employer-chip-filter";
-      label.style.setProperty("--chip-color", item.color);
+      if (item.color) {
+        label.style.setProperty("--chip-color", item.color);
+      } else {
+        label.classList.add("employer-chip-filter--no-color");
+      }
 
       const input = document.createElement("input");
       input.type = "checkbox";
@@ -97,6 +101,15 @@ export class ReportsView {
     });
   }
 
+  clearDateFilters() {
+    if (this.dateFrom) {
+      this.dateFrom.value = "";
+    }
+    if (this.dateTo) {
+      this.dateTo.value = "";
+    }
+  }
+
   setAllEmployerChipsChecked(container, checked) {
     container?.querySelectorAll('input[type="checkbox"]').forEach((input) => {
       input.checked = checked;
@@ -106,8 +119,10 @@ export class ReportsView {
   appendLogRows(tbody, logs, { onEdit, onDelete, onShowNote, getEmployerColor }) {
     logs.forEach((log) => {
       const row = document.createElement("tr");
-      const color = getEmployerColor?.(log) || getColorForOrphanName(log.employerName);
-      row.style.backgroundColor = color;
+      const color = getEmployerColor?.(log);
+      if (color) {
+        row.style.backgroundColor = color;
+      }
 
       const noteCell = log.note?.trim()
         ? `<button type="button" class="note-indicator" title="הצג הערה" aria-label="הצג הערה">!</button>`
@@ -118,7 +133,7 @@ export class ReportsView {
         <td>${log.start}</td>
         <td>${log.end}</td>
         <td>${log.durationStr}</td>
-        <td><span class="employer-tag">${log.employerName || ""}</span></td>
+        <td>${log.employerName || ""}</td>
         <td class="note-cell">${noteCell}</td>
         <td class="actions-cell">
           <button type="button" class="btn-small btn-edit" data-id="${log.id}">עריכה</button>
@@ -178,7 +193,7 @@ export class ReportsView {
     content.className = `folder-content${expanded ? "" : " is-collapsed"}`;
 
     const branch = document.createElement("div");
-    branch.className = `folder-branch folder-branch-open${nested ? " folder-branch-nested" : ""}`;
+    branch.className = "folder-branch folder-branch-open";
 
     const context = document.createElement("p");
     context.className = "folder-open-context";
@@ -388,10 +403,10 @@ export class ReportsView {
 
     summary.rows.forEach((row) => {
       const tr = document.createElement("tr");
-      const color =
-        getEmployerColorByName?.(row.employerName) ||
-        getColorForOrphanName(row.employerName || UNKNOWN_EMPLOYER);
-      tr.style.backgroundColor = color;
+      const color = getEmployerColorByName?.(row.employerName);
+      if (color) {
+        tr.style.backgroundColor = color;
+      }
       tr.innerHTML = `
         <td>${row.employerName}</td>
         <td>${row.workDays}</td>

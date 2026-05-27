@@ -47,7 +47,7 @@ export class SettingsController {
     });
   }
 
-  handleAdd() {
+  async handleAdd() {
     const name = this.view.getInputValue();
     if (!name) {
       this.view.showFeedback("יש להזין שם מעסיק.", "error");
@@ -61,16 +61,24 @@ export class SettingsController {
       return;
     }
 
-    this.employerRepo.add(Employer.create(name, generateId, this.employerRepo.getAll().length));
-    this.view.clearInput();
-    this.editingEmployerId = null;
-    this.refresh();
-    this.view.showFeedback(`המעסיק "${name}" נוסף בהצלחה!`);
-    restoreFieldFocus(this.view.employerNameInput);
-    this.onEmployersChanged?.();
+    try {
+      await this.employerRepo.add(
+        Employer.create(name, generateId, this.employerRepo.getAll().length)
+      );
+      this.view.clearInput();
+      this.editingEmployerId = null;
+      this.refresh();
+      this.view.showFeedback(`המעסיק "${name}" נוסף בהצלחה!`);
+      restoreFieldFocus(this.view.employerNameInput);
+      this.onEmployersChanged?.();
+    } catch (error) {
+      this.refresh();
+      this.view.showFeedback(error.message || "שמירה מקומית נכשלה.", "error");
+      restoreFieldFocus(this.view.employerNameInput);
+    }
   }
 
-  handleEdit(id, name) {
+  async handleEdit(id, name) {
     if (!name.trim()) {
       this.view.showFeedback("שם מעסיק לא יכול להיות ריק.", "error");
       return;
@@ -81,12 +89,17 @@ export class SettingsController {
       return;
     }
 
-    this.employerRepo.update(id, name);
-    this.editingEmployerId = null;
-    this.refresh();
-    this.view.showFeedback("שם המעסיק עודכן.");
-    refocusSettingsInput();
-    this.onEmployersChanged?.();
+    try {
+      await this.employerRepo.update(id, name);
+      this.editingEmployerId = null;
+      this.refresh();
+      this.view.showFeedback("שם המעסיק עודכן.");
+      refocusSettingsInput();
+      this.onEmployersChanged?.();
+    } catch (error) {
+      this.refresh();
+      this.view.showFeedback(error.message || "עדכון נכשל.", "error");
+    }
   }
 
   async handleDelete(id) {
@@ -104,9 +117,15 @@ export class SettingsController {
     }
 
     this.view.preserveFocusBeforeListUpdate();
-    this.employerRepo.delete(id);
-    this.refresh();
-    refocusSettingsInput();
-    this.onEmployersChanged?.();
+    try {
+      await this.employerRepo.delete(id);
+      this.refresh();
+      refocusSettingsInput();
+      this.onEmployersChanged?.();
+    } catch (error) {
+      this.refresh();
+      this.view.showFeedback(error.message || "מחיקה נכשלה.", "error");
+      refocusSettingsInput();
+    }
   }
 }

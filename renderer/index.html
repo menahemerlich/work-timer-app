@@ -29,9 +29,19 @@
               <div class="subtitle">ניהול זמן עבודה לפי מעסיק — בקלות ובחיוך</div>
             </div>
           </div>
-          <div class="status-badge" id="statusBadge">
-            <span class="status-dot"></span>
-            <span id="statusLabel">ממתין</span>
+          <div class="header-actions">
+            <div class="sync-bar">
+              <span class="sync-status-badge" id="syncStatusBadge" data-state="local_only">מקומי</span>
+              <button type="button" class="btn-sync-force" id="syncForceBtn" title="סנכרן עכשיו">↻</button>
+            </div>
+            <div class="auth-bar">
+              <span class="auth-status" id="authStatus">מקומי</span>
+              <button type="button" class="btn-auth" id="authBtn">ענן</button>
+            </div>
+            <div class="status-badge" id="statusBadge">
+              <span class="status-dot"></span>
+              <span id="statusLabel">ממתין</span>
+            </div>
           </div>
         </header>
 
@@ -110,24 +120,35 @@
         <section class="tab-panel" data-panel="reports">
           <div class="panel-card filters-card">
             <div class="section-title">🔍 סינון דוחות</div>
-            <div class="filters-row">
-              <div class="filter-group filter-group-employers">
-                <div class="filter-label-row">
-                  <span class="field-label">מעסיקים</span>
-                  <div class="employer-filter-actions">
+            <div class="filters-split">
+              <div class="filter-panel filter-panel-employers">
+                <div class="filter-panel-header">
+                  <span class="filter-panel-title">🏢 לפי מעסיקים</span>
+                  <div class="filter-panel-actions">
                     <button type="button" class="link-btn" id="employerFilterSelectAll">הכל</button>
                     <button type="button" class="link-btn" id="employerFilterClearAll">נקה</button>
                   </div>
                 </div>
                 <div id="employerFilterChips" class="employer-filter-chips"></div>
               </div>
-              <div class="filter-group">
-                <label class="field-label" for="dateFrom">מתאריך</label>
-                <input type="date" id="dateFrom" class="field-input" />
-              </div>
-              <div class="filter-group">
-                <label class="field-label" for="dateTo">עד תאריך</label>
-                <input type="date" id="dateTo" class="field-input" />
+
+              <div class="filter-panel filter-panel-dates">
+                <div class="filter-panel-header">
+                  <span class="filter-panel-title">📅 לפי תאריכים</span>
+                  <div class="filter-panel-actions">
+                    <button type="button" class="link-btn" id="dateFilterClear">נקה</button>
+                  </div>
+                </div>
+                <div class="date-filters-fields">
+                  <div class="date-filter-field">
+                    <label class="field-label" for="dateFrom">מתאריך</label>
+                    <input type="date" id="dateFrom" class="field-input" />
+                  </div>
+                  <div class="date-filter-field">
+                    <label class="field-label" for="dateTo">עד תאריך</label>
+                    <input type="date" id="dateTo" class="field-input" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -53,9 +53,14 @@ export class TimerController {
     }
 
     this.showEmployerPicker(employers);
+    void this.employerRepo.reload();
   }
 
   createEmployerFromName(name) {
+    return this.createEmployerFromNameAsync(name);
+  }
+
+  async createEmployerFromNameAsync(name) {
     const trimmed = name.trim();
     if (!trimmed) {
       return { error: "יש להזין שם מעסיק." };
@@ -65,17 +70,31 @@ export class TimerController {
       return { error: "מעסיק בשם זה כבר קיים." };
     }
 
-    const employer = Employer.create(trimmed, generateId);
-    this.employerRepo.add(employer);
-    this.onEmployersChanged?.();
-    return { employer };
+    const employer = Employer.create(
+      trimmed,
+      generateId,
+      this.employerRepo.getAll().length
+    );
+
+    try {
+      await this.employerRepo.add(employer);
+      this.onEmployersChanged?.();
+      return { employer };
+    } catch (error) {
+      return { error: error.message || "שמירה מקומית נכשלה." };
+    }
   }
 
-  startWithEmployer(employer) {
-    this.employerRepo.setLastSelected(employer.id);
+  async startWithEmployer(employer) {
+    const persisted = this.employerRepo.getById(employer.id);
+    if (!persisted) {
+      throw new Error("המעסיק לא נשמר. נסה שוב.");
+    }
+
+    await this.employerRepo.setLastSelected(persisted.id);
     this.timerService.start({
-      employerId: employer.id,
-      employerName: employer.name
+      employerId: persisted.id,
+      employerName: persisted.name
     });
     this.modal.hide();
   }
@@ -89,16 +108,20 @@ export class TimerController {
         <input id="firstEmployerName" type="text" class="field-input" placeholder="לדוגמה: חברת ABC" autocomplete="off" />
       `,
       confirmText: "הוסף והתחל",
-      onConfirm: () => {
+      onConfirm: async () => {
         const input = document.getElementById("firstEmployerName");
-        const result = this.createEmployerFromName(input?.value || "");
+        const result = await this.createEmployerFromNameAsync(input?.value || "");
         if (result.error) {
           this.modal.showFeedback(result.error);
           this.modal.focusField(input);
           return;
         }
 
-        this.startWithEmployer(result.employer);
+        try {
+          await this.startWithEmployer(result.employer);
+        } catch (error) {
+          this.modal.showFeedback(error.message || "לא ניתן להתחיל עבודה.");
+        }
       }
     });
   }
@@ -125,18 +148,24 @@ export class TimerController {
         <p class="modal-hint">מעסיק חדש יישמר אוטומטית בדף ההגדרות.</p>
       `,
       confirmText: "התחלת עבודה",
-      onConfirm: () => {
+      onConfirm: async () => {
         const newNameInput = document.getElementById("newEmployerName");
         const newName = newNameInput?.value.trim() || "";
 
         if (newName) {
-          const result = this.createEmployerFromName(newName);
+          const result = await this.createEmployerFromNameAsync(newName);
           if (result.error) {
             this.modal.showFeedback(result.error);
             this.modal.focusField(newNameInput);
             return;
           }
-          this.startWithEmployer(result.employer);
+          try {
+            await this.startWithEmployer(result.employer);
+          } catch (error) {
+            this.modal.showFeedback(error.message || "לא ניתן להתחיל עבודה.");
+            this.modal.focusField(newNameInput);
+            return;
+          }
           return;
         }
 
@@ -148,7 +177,12 @@ export class TimerController {
           return;
         }
 
-        this.startWithEmployer(employer);
+        try {
+          await this.startWithEmployer(employer);
+        } catch (error) {
+          this.modal.showFeedback(error.message || "לא ניתן להתחיל עבודה.");
+          this.modal.focusField(select);
+        }
       }
     });
   }
@@ -178,9 +212,18 @@ export class TimerController {
   }
 
   handleStop() {
-    const log = this.timerService.stop();
-    if (log) {
-      this.onLogAdded?.();
+    void this.handleStopAsync();
+  }
+
+  async handleStopAsync() {
+    try {
+      const log = await this.timerService.stopAsync();
+      if (log) {
+        this.onLogAdded?.();
+      }
+    } catch (error) {
+      console.error("Failed to save work log:", error);
+      alert(error.message || "שמירת הדוח נכשלה.");
     }
   }
 }

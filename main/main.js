@@ -2,6 +2,7 @@ const path = require("path");
 const { app } = require("electron");
 const { createMainWindow } = require("./windows/MainWindow");
 const { registerMiniWindowHandlers } = require("./ipc/miniWindowHandlers");
+const { initDataLayer, startDataServices, stopDataServices } = require("./bootstrap/dataBootstrap");
 
 app.setPath("userData", path.join(app.getPath("appData"), "WorkTimer"));
 app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
@@ -28,6 +29,8 @@ registerMiniWindowHandlers();
 
 if (gotSingleInstanceLock) {
   app.whenReady().then(() => {
+    const supabase = initDataLayer();
+    startDataServices(supabase);
     createMainWindow();
 
     app.on("activate", () => {
@@ -41,5 +44,9 @@ if (gotSingleInstanceLock) {
     if (process.platform !== "darwin") {
       app.quit();
     }
+  });
+
+  app.on("before-quit", () => {
+    stopDataServices();
   });
 }

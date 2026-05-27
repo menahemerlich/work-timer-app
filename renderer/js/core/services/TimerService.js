@@ -113,6 +113,10 @@ export class TimerService {
   }
 
   stop() {
+    return this.stopAsync();
+  }
+
+  async stopAsync() {
     if (!this.state.isRunning && this.state.elapsedMs === 0) {
       return null;
     }
@@ -134,7 +138,7 @@ export class TimerService {
       note: this.state.sessionNote || ""
     });
 
-    this.logRepo.add(log);
+    await this.logRepo.add(log);
 
     this.state = new TimerState();
     this.timerStateRepo.clearState();
@@ -168,8 +172,9 @@ export class TimerService {
     this.notify();
   }
 
-  pollCommand(handlers) {
-    const command = this.timerStateRepo.getCommand();
+  async pollCommand(handlers) {
+    const api = window.electronAPI?.db?.timer;
+    const command = api ? await api.getCommand() : null;
     if (!command) {
       return;
     }
@@ -178,6 +183,10 @@ export class TimerService {
       handlers.onToggle();
     }
 
-    this.timerStateRepo.clearCommand();
+    if (api) {
+      await api.clearCommand();
+    } else {
+      this.timerStateRepo.clearCommand();
+    }
   }
 }
