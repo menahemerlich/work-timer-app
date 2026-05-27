@@ -40,9 +40,10 @@ export class AuthController {
         this.modal.show({
           title: "סנכרון ענן",
           bodyHtml: `
-            <p class="modal-hint">כדי להפעיל סנכרון לענן, הוסף לקובץ <code>.env</code> בשורש הפרויקט:</p>
+            <p class="modal-hint">הגדרות Supabase לא נמצאו.</p>
+            <p class="modal-hint">בפיתוח: הוסף קובץ <code>.env</code> בשורש הפרויקט עם:</p>
             <pre class="env-example">SUPABASE_URL=...\nSUPABASE_ANON_KEY=...</pre>
-            <p class="modal-hint">הרץ את הסקריפט SQL מתיקיית supabase/ בפרויקט Supabase שלך.</p>
+            <p class="modal-hint">בגרסה מותקנת: שים את אותו קובץ <code>.env</code> ליד קובץ ההפעלה, או הרץ פעם אחת מ<code>npm start</code> כדי לשמור את ההגדרות.</p>
           `,
           confirmText: "סגור",
           onConfirm: () => this.modal.hide()

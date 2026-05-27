@@ -32,6 +32,13 @@
       "shared/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".",
+        "filter": [".env"]
+      }
+    ],
     "win": {
       "target": "portable"
     }

@@ -1,7 +1,7 @@
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "../../.env") });
 
 const { app, BrowserWindow } = require("electron");
+const { loadSupabaseCredentials } = require("../config/envConfig");
 const { createLocalDatabase } = require("../db/LocalDatabaseService");
 const { SupabaseService } = require("../db/SupabaseService");
 const authSession = require("../db/authSession");
@@ -26,11 +26,12 @@ function broadcastSyncStatus(status) {
 
 function initDataLayer() {
   const userDataPath = app.getPath("userData");
+  const supabaseCredentials = loadSupabaseCredentials(app);
   localDb = createLocalDatabase(userDataPath);
 
   const supabase = new SupabaseService({
-    url: process.env.SUPABASE_URL,
-    anonKey: process.env.SUPABASE_ANON_KEY,
+    url: supabaseCredentials.url,
+    anonKey: supabaseCredentials.anonKey,
     userDataPath,
     authSession
   });
