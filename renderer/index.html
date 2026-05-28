@@ -119,8 +119,20 @@
         </section>
 
         <section class="tab-panel" data-panel="reports">
-          <div class="panel-card filters-card">
-            <div class="section-title">🔍 סינון דוחות</div>
+          <div class="reports-topbar">
+            <div class="reports-topbar-title">דוחות</div>
+            <div class="reports-topbar-actions">
+              <button type="button" class="btn-soft btn-peach" id="clearFiltersBtn" hidden>נקה סינונים</button>
+              <button type="button" class="btn-soft btn-lavender" id="openFiltersBtn">🔍 סינון</button>
+            </div>
+          </div>
+
+          <div class="filters-drawer-overlay" id="filtersOverlay" hidden></div>
+          <aside class="filters-drawer" id="filtersDrawer" aria-hidden="true">
+            <div class="filters-drawer-header">
+              <div class="section-title section-title-inline">🔍 סינון דוחות</div>
+              <button type="button" class="btn-soft" id="closeFiltersBtn" aria-label="סגור">×</button>
+            </div>
             <div class="filters-split">
               <div class="filter-panel filter-panel-employers">
                 <div class="filter-panel-header">
@@ -152,7 +164,7 @@
                 </div>
               </div>
             </div>
-          </div>
+          </aside>
 
           <div class="buttons-row">
             <button type="button" class="btn-action btn-start" id="addManualLogBtn">+ הוסף דוח ידני</button>

@@ -20,6 +20,71 @@
   margin-bottom: 16px;
 }
 
+.reports-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.reports-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reports-topbar-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #4c1d95;
+}
+
+.filters-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.35);
+  z-index: 900;
+}
+
+.filters-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: min(420px, 92vw);
+  background: rgba(255, 255, 255, 0.98);
+  border-right: 2px solid #e9d5ff;
+  box-shadow: 0 20px 60px rgba(124, 58, 237, 0.18);
+  padding: 14px;
+  z-index: 901;
+  transform: translateX(-105%);
+  transition: transform 0.25s ease;
+  overflow: auto;
+}
+
+.filters-drawer.is-open {
+  transform: translateX(0);
+}
+
+.filters-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.filters-drawer .filters-split {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 760px) {
+  .filters-drawer .filters-split {
+    grid-template-columns: 1fr;
+  }
+}
+
 .filters-split {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

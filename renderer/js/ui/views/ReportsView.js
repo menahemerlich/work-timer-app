@@ -2,6 +2,11 @@ import { getColorForOrphanName } from "../../core/utils/employerColors.js";
 
 export class ReportsView {
   constructor() {
+    this.openFiltersBtn = document.getElementById("openFiltersBtn");
+    this.clearFiltersBtn = document.getElementById("clearFiltersBtn");
+    this.closeFiltersBtn = document.getElementById("closeFiltersBtn");
+    this.filtersOverlay = document.getElementById("filtersOverlay");
+    this.filtersDrawer = document.getElementById("filtersDrawer");
     this.employerFilterChips = document.getElementById("employerFilterChips");
     this.employerFilterSelectAll = document.getElementById("employerFilterSelectAll");
     this.employerFilterClearAll = document.getElementById("employerFilterClearAll");
@@ -31,6 +36,31 @@ export class ReportsView {
     this.fileInput = document.getElementById("fileInput");
     this.backupInput = document.getElementById("backupInput");
     this.addManualLogBtn = document.getElementById("addManualLogBtn");
+  }
+
+  openFiltersDrawer() {
+    if (!this.filtersDrawer || !this.filtersOverlay) {
+      return;
+    }
+    this.filtersOverlay.hidden = false;
+    this.filtersDrawer.classList.add("is-open");
+    this.filtersDrawer.setAttribute("aria-hidden", "false");
+  }
+
+  closeFiltersDrawer() {
+    if (!this.filtersDrawer || !this.filtersOverlay) {
+      return;
+    }
+    this.filtersDrawer.classList.remove("is-open");
+    this.filtersDrawer.setAttribute("aria-hidden", "true");
+    this.filtersOverlay.hidden = true;
+  }
+
+  setFiltersActive(isActive) {
+    if (!this.clearFiltersBtn) {
+      return;
+    }
+    this.clearFiltersBtn.hidden = !isActive;
   }
 
   buildFilterItems(activeEmployers, orphanNames) {

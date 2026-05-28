@@ -36,6 +36,21 @@ export class ReportsController {
   }
 
   init() {
+    this.view.openFiltersBtn?.addEventListener("click", () => this.view.openFiltersDrawer());
+    this.view.closeFiltersBtn?.addEventListener("click", () => this.view.closeFiltersDrawer());
+    this.view.filtersOverlay?.addEventListener("click", () => this.view.closeFiltersDrawer());
+    this.view.clearFiltersBtn?.addEventListener("click", () => {
+      this.view.setAllEmployerChipsChecked(this.view.employerFilterChips, false);
+      this.view.clearDateFilters();
+      this.view.closeFiltersDrawer();
+      this.refresh();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        this.view.closeFiltersDrawer();
+      }
+    });
+
     this.view.employerFilterSelectAll?.addEventListener("click", () => {
       this.view.setAllEmployerChipsChecked(this.view.employerFilterChips, true);
       this.refresh();
@@ -162,6 +177,11 @@ export class ReportsController {
     const reportFilters = this.getFilters();
     reportFilters.totalOptions = filterItems.length;
     const filteredLogs = this.applyEmployerFilter(allLogs, reportFilters);
+
+    const hasEmployerFilterActive =
+      selectedReports.length > 0 && selectedReports.length < filterItems.length;
+    const hasDateFilterActive = Boolean(this.view.dateFrom?.value || this.view.dateTo?.value);
+    this.view.setFiltersActive(hasEmployerFilterActive || hasDateFilterActive);
     const logHandlers = {
       onEdit: (log) => this.handleEdit(log),
       onDelete: (log) => this.handleDelete(log),
