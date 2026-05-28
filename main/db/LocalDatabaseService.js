@@ -1,6 +1,6 @@
 const Database = require("better-sqlite3");
 const path = require("path");
-const { MIGRATION_V1, MIGRATION_V2 } = require("./schema");
+const { MIGRATION_V1, MIGRATION_V2, MIGRATION_V3 } = require("./schema");
 
 function nowIso() {
   return new Date().toISOString();
@@ -35,6 +35,12 @@ class LocalDatabaseService {
     if (row.version < 2) {
       this.db.exec(MIGRATION_V2);
       this.db.prepare("UPDATE schema_version SET version = ?").run(2);
+    }
+
+    row = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() || row;
+    if (row.version < 3) {
+      this.db.exec(MIGRATION_V3);
+      this.db.prepare("UPDATE schema_version SET version = ?").run(3);
     }
   }
 
@@ -184,11 +190,12 @@ class LocalDatabaseService {
 
     this.db
       .prepare(
-        `INSERT INTO employers (id, name, created_at, color, updated_at, deleted_at)
-         VALUES (@id, @name, @created_at, @color, @updated_at, NULL)
+        `INSERT INTO employers (id, name, created_at, color, hourly_rate, updated_at, deleted_at)
+         VALUES (@id, @name, @created_at, @color, @hourly_rate, @updated_at, NULL)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name,
            color = excluded.color,
+           hourly_rate = excluded.hourly_rate,
            updated_at = excluded.updated_at,
            deleted_at = NULL`
       )
@@ -197,6 +204,7 @@ class LocalDatabaseService {
         name: employer.name,
         created_at: employer.createdAt || ts,
         color: employer.color || null,
+        hourly_rate: employer.hourlyRate ?? null,
         updated_at: ts
       });
 
@@ -314,12 +322,23 @@ class LocalDatabaseService {
 
   getSettings() {
     const rows = this.db.prepare("SELECT key, value FROM app_settings").all();
-    const settings = { employers: [], lastSelectedEmployerId: null };
+    const settings = {
+      employers: [],
+      lastSelectedEmployerId: null,
+      monthlyTargetDays: null,
+      monthlyTargetHoursPerDay: null
+    };
     settings.employers = this.getAllEmployers();
 
     rows.forEach((row) => {
       if (row.key === "lastSelectedEmployerId") {
         settings.lastSelectedEmployerId = row.value || null;
+      }
+      if (row.key === "monthlyTargetDays") {
+        settings.monthlyTargetDays = row.value ? Number(row.value) : null;
+      }
+      if (row.key === "monthlyTargetHoursPerDay") {
+        settings.monthlyTargetHoursPerDay = row.value ? Number(row.value) : null;
       }
     });
 
@@ -341,6 +360,43 @@ class LocalDatabaseService {
         this.enqueueSync("app_settings", "lastSelectedEmployerId", "upsert", {
           key: "lastSelectedEmployerId",
           value: settings.lastSelectedEmployerId || null,
+          updatedAt: ts
+        });
+      }
+    }
+
+    if (settings.monthlyTargetDays !== undefined) {
+      const value = settings.monthlyTargetDays === null ? "" : String(settings.monthlyTargetDays);
+      this.db
+        .prepare(
+          `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+        )
+        .run("monthlyTargetDays", value, ts);
+
+      if (enqueue) {
+        this.enqueueSync("app_settings", "monthlyTargetDays", "upsert", {
+          key: "monthlyTargetDays",
+          value: settings.monthlyTargetDays,
+          updatedAt: ts
+        });
+      }
+    }
+
+    if (settings.monthlyTargetHoursPerDay !== undefined) {
+      const value =
+        settings.monthlyTargetHoursPerDay === null ? "" : String(settings.monthlyTargetHoursPerDay);
+      this.db
+        .prepare(
+          `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+        )
+        .run("monthlyTargetHoursPerDay", value, ts);
+
+      if (enqueue) {
+        this.enqueueSync("app_settings", "monthlyTargetHoursPerDay", "upsert", {
+          key: "monthlyTargetHoursPerDay",
+          value: settings.monthlyTargetHoursPerDay,
           updatedAt: ts
         });
       }
@@ -414,6 +470,27 @@ class LocalDatabaseService {
     if (enqueue) {
       this.enqueueSync("timer_state", "1", "delete", { id: "1" });
     }
+  }
+
+  hardResetLocalDataForCloudPull({ userId = null } = {}) {
+    const tx = this.db.transaction(() => {
+      // Clear user data
+      this.db.prepare("DELETE FROM work_logs").run();
+      this.db.prepare("DELETE FROM employers").run();
+      this.db.prepare("DELETE FROM app_settings").run();
+      this.db.prepare("DELETE FROM timer_state").run();
+
+      // Clear sync queue + metadata so local won't re-push old data
+      this.db.prepare("DELETE FROM sync_queue").run();
+      this.db.prepare("DELETE FROM sync_metadata").run();
+
+      if (userId) {
+        this.setMeta(`cloud_bootstrapped_${userId}`, "1");
+      }
+
+      this.setMeta("last_pull_at", "1970-01-01T00:00:00.000Z");
+    });
+    tx();
   }
 
   importFromLegacy({ employers, logs, settings, timerState }) {
@@ -496,6 +573,7 @@ function mapEmployerRow(row) {
     name: row.name,
     createdAt: row.created_at,
     color: row.color,
+    hourlyRate: row.hourly_rate ?? null,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at
   };

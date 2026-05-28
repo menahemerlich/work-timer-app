@@ -37,6 +37,7 @@ export class LogRepository {
       getApi()?.upsert(log.toJSON()).catch(console.error);
     });
     this.logs = logs.map((log) => WorkLog.fromJSON(log.toJSON ? log.toJSON() : log));
+    window.dispatchEvent(new CustomEvent("logs:changed"));
   }
 
   upsertLocal(log) {
@@ -50,6 +51,7 @@ export class LogRepository {
 
   async add(log) {
     this.upsertLocal(log);
+    window.dispatchEvent(new CustomEvent("logs:changed"));
     const api = getApi();
     if (!api) {
       return log;
@@ -59,15 +61,18 @@ export class LogRepository {
       const saved = await api.upsert(log.toJSON());
       const normalized = WorkLog.fromJSON(saved || log.toJSON());
       this.upsertLocal(normalized);
+      window.dispatchEvent(new CustomEvent("logs:changed"));
       return normalized;
     } catch (error) {
       this.logs = this.logs.filter((item) => item.id !== log.id);
+      window.dispatchEvent(new CustomEvent("logs:changed"));
       throw error;
     }
   }
 
   async update(updatedLog) {
     this.upsertLocal(updatedLog);
+    window.dispatchEvent(new CustomEvent("logs:changed"));
     const api = getApi();
     if (!api) {
       return updatedLog;
@@ -77,9 +82,11 @@ export class LogRepository {
       const saved = await api.upsert(updatedLog.toJSON());
       const normalized = WorkLog.fromJSON(saved || updatedLog.toJSON());
       this.upsertLocal(normalized);
+      window.dispatchEvent(new CustomEvent("logs:changed"));
       return normalized;
     } catch (error) {
       await this.reload();
+      window.dispatchEvent(new CustomEvent("logs:changed"));
       throw error;
     }
   }
@@ -87,11 +94,13 @@ export class LogRepository {
   delete(id) {
     this.logs = this.logs.filter((log) => log.id !== id);
     getApi()?.delete(id).catch(console.error);
+    window.dispatchEvent(new CustomEvent("logs:changed"));
   }
 
   clear() {
     this.logs = [];
     getApi()?.clear().catch(console.error);
+    window.dispatchEvent(new CustomEvent("logs:changed"));
   }
 }
 

@@ -165,13 +165,14 @@ class SyncEngine {
         name: local.name,
         createdAt: local.createdAt,
         color: local.color,
+        hourlyRate: local.hourlyRate ?? null,
         updatedAt: local.updatedAt || new Date().toISOString()
       },
       "upsert"
     );
   }
 
-  async pullRemote() {
+  async pullRemote({ throwOnError = false } = {}) {
     const userId = this.supabase.getUserId();
     if (!userId || !this.isOnlineFn()) {
       return this.getStatus();
@@ -195,7 +196,8 @@ class SyncEngine {
                 id: row.id,
                 name: row.name,
                 createdAt: row.created_at,
-                color: row.color
+                color: row.color,
+                hourlyRate: row.hourly_rate ?? null
               },
               { enqueue: false }
             );
@@ -228,14 +230,30 @@ class SyncEngine {
       });
 
       remote.appSettings.forEach((row) => {
-        if (row.key === "lastSelectedEmployerId") {
-          let value = row.value;
-          try {
-            value = JSON.parse(row.value);
-          } catch {
-            // keep raw
-          }
+        const key = row.key;
+        let value = row.value;
+        try {
+          value = JSON.parse(row.value);
+        } catch {
+          // keep raw
+        }
+
+        if (key === "lastSelectedEmployerId") {
           this.localDb.saveSettings({ lastSelectedEmployerId: value || null }, { enqueue: false });
+        }
+        if (key === "monthlyTargetDays") {
+          const num = value === "" || value === null ? null : Number(value);
+          this.localDb.saveSettings(
+            { monthlyTargetDays: Number.isFinite(num) ? num : null },
+            { enqueue: false }
+          );
+        }
+        if (key === "monthlyTargetHoursPerDay") {
+          const num = value === "" || value === null ? null : Number(value);
+          this.localDb.saveSettings(
+            { monthlyTargetHoursPerDay: Number.isFinite(num) ? num : null },
+            { enqueue: false }
+          );
         }
       });
 
@@ -259,6 +277,9 @@ class SyncEngine {
     } catch (error) {
       this.lastError = error.message;
       console.error("Pull remote failed:", error.message);
+      if (throwOnError) {
+        throw new Error(error.message || "Pull remote failed");
+      }
     } finally {
       this.isSyncing = false;
       this.notifyStatus();
@@ -290,6 +311,27 @@ class SyncEngine {
     } finally {
       this.inFullSync = false;
       this.runPendingSync();
+    }
+    return this.getStatus();
+  }
+
+  async hardPullReplaceLocal() {
+    const userId = this.supabase.getUserId();
+    if (!userId) {
+      throw new Error("יש להתחבר לענן לפני משיכת נתונים.");
+    }
+    if (!this.isOnlineFn()) {
+      throw new Error("אין חיבור לאינטרנט — לא ניתן למשוך מהענן.");
+    }
+
+    this.isSyncing = true;
+    this.notifyStatus();
+    try {
+      this.localDb.hardResetLocalDataForCloudPull({ userId });
+      await this.pullRemote({ throwOnError: true });
+    } finally {
+      this.isSyncing = false;
+      this.notifyStatus();
     }
     return this.getStatus();
   }

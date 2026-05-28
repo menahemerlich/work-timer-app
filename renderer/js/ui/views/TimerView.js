@@ -16,6 +16,7 @@ export class TimerView {
     this.pauseLabel = document.getElementById("pauseLabel");
     this.stopBtn = document.getElementById("stopBtn");
     this.openMiniBtn = document.getElementById("openMiniBtn");
+    this.motivationBanner = document.getElementById("motivationBanner");
   }
 
   setStatus(state) {
@@ -68,6 +69,44 @@ export class TimerView {
       this.durationDisplay.textContent = "-";
       this.hideEmployerChip();
       this.hideSessionNoteBtn();
+    }
+  }
+
+  setMotivation(text) {
+    if (!this.motivationBanner) {
+      return;
+    }
+    const value = String(text || "").trim();
+    if (!value) {
+      this.motivationBanner.hidden = true;
+      this.motivationBanner.innerHTML = "";
+      return;
+    }
+    const currentText = this.motivationBanner.querySelector?.(".motivation-text")?.textContent || "";
+    const changed = currentText !== value;
+    this.motivationBanner.hidden = false;
+    if (changed) {
+      this.motivationBanner.classList.remove("is-changing");
+      // force reflow for restart animation
+      // eslint-disable-next-line no-unused-expressions
+      this.motivationBanner.offsetHeight;
+      this.motivationBanner.classList.add("is-changing");
+      window.setTimeout(() => this.motivationBanner?.classList.remove("is-changing"), 550);
+    }
+    // Keep stars markup stable for animations
+    if (!this.motivationBanner.querySelector(".motivation-stars")) {
+      this.motivationBanner.innerHTML = `
+        <span class="motivation-text"></span>
+        <span class="motivation-stars" aria-hidden="true">
+          <span class="star star-1">✦</span>
+          <span class="star star-2">✦</span>
+          <span class="star star-3">✦</span>
+        </span>
+      `;
+    }
+    const textEl = this.motivationBanner.querySelector(".motivation-text");
+    if (textEl) {
+      textEl.textContent = value;
     }
   }
 

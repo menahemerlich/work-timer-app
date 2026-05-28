@@ -199,9 +199,131 @@ export class ReportsController {
     monthlyFilters.totalOptions = filterItems.length;
     const filteredMonthLogs = this.applyEmployerFilter(monthLogs, monthlyFilters);
 
+    const goalProgress = this.computeMonthlyGoalProgress(filteredMonthLogs);
+
     this.view.renderMonthlySummary(this.reportService.getSummaryByEmployer(filteredMonthLogs), {
       hasMonthData: monthLogs.length > 0,
-      getEmployerColorByName: (name) => this.getEmployerColorByName(name)
+      getEmployerColorByName: (name) => this.getEmployerColorByName(name),
+      onOpenCalculator: () => this.openMonthlyEarningsModal(filteredMonthLogs),
+      goalProgress
+    });
+  }
+
+  computeMonthlyGoalProgress(monthLogs, referenceDate = new Date()) {
+    const settings = this.employerRepo.settingsRepository.getSettings();
+    const targetDays = settings.monthlyTargetDays ?? null;
+    const hoursPerDay = settings.monthlyTargetHoursPerDay ?? null;
+
+    if (!targetDays || !hoursPerDay || targetDays <= 0 || hoursPerDay <= 0) {
+      return null;
+    }
+
+    const daysElapsed = referenceDate.getDate(); // 1..31
+    const expectedWorkDaysSoFar = Math.min(daysElapsed, targetDays);
+    const expectedHours = expectedWorkDaysSoFar * hoursPerDay;
+    const actualHours = this.reportService.getTotalDurationMs(monthLogs) / 3600000;
+
+    const percent = expectedHours > 0 ? (actualHours / expectedHours) * 100 : 0;
+    const fmt = (n) =>
+      Number(n || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    return {
+      targetDays,
+      hoursPerDay,
+      daysElapsed,
+      expectedWorkDaysSoFar,
+      expectedHours,
+      actualHours,
+      percent,
+      expectedHoursStr: `${fmt(expectedHours)} שעות`,
+      actualHoursStr: `${fmt(actualHours)} שעות`,
+      percentStr: `${Math.round(percent)}%`
+    };
+  }
+
+  openMonthlyEarningsModal(monthLogs) {
+    const employers = this.employerRepo.getAll();
+    const byName = new Map(employers.map((e) => [e.name, e]));
+
+    const totals = new Map();
+    monthLogs.forEach((log) => {
+      const key = log.employerName || UNKNOWN_EMPLOYER;
+      totals.set(key, (totals.get(key) || 0) + (log.durationMs || 0));
+    });
+
+    const rows = Array.from(totals.entries())
+      .map(([name, ms]) => {
+        const hours = ms / 3600000;
+        const rate = byName.get(name)?.hourlyRate ?? null;
+        const amount = rate !== null ? hours * rate : null;
+        return { name, hours, rate, amount };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "he"));
+
+    const totalAmount = rows.reduce((sum, r) => sum + (r.amount || 0), 0);
+    const hasAnyRate = rows.some((r) => r.rate !== null);
+
+    const formatMoney = (n) =>
+      `₪${Number(n || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const formatHours = (n) =>
+      Number(n || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const bodyHtml = `
+      <p class="modal-hint">
+        חישוב שכר לפי דוחות החודש המסוננים כרגע. תעריף לשעה נקבע בהגדרות לכל מעסיק.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>מעסיק</th>
+              <th>שעות</th>
+              <th>₪ לשעה</th>
+              <th>סה"כ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map((r) => {
+                const rateCell = r.rate === null ? "—" : formatMoney(r.rate).replace("₪", "");
+                const amountCell = r.amount === null ? "—" : formatMoney(r.amount);
+                return `
+                  <tr>
+                    <td>${this.escapeHtml(r.name)}</td>
+                    <td>${formatHours(r.hours)}</td>
+                    <td>${rateCell}</td>
+                    <td><strong>${amountCell}</strong></td>
+                  </tr>
+                `;
+              })
+              .join("")}
+            ${
+              hasAnyRate
+                ? `
+                  <tr class="summary-row">
+                    <td><strong>סה"כ</strong></td>
+                    <td></td>
+                    <td></td>
+                    <td><strong>${formatMoney(totalAmount)}</strong></td>
+                  </tr>
+                `
+                : ""
+            }
+          </tbody>
+        </table>
+      </div>
+      ${
+        hasAnyRate
+          ? ""
+          : `<p class="modal-hint">לא הוגדר תעריף לשעה לאף מעסיק. ניתן להוסיף בהגדרות.</p>`
+      }
+    `;
+
+    this.modal.show({
+      title: "🧮 מחשבון שכר",
+      bodyHtml,
+      confirmText: "סגור",
+      onConfirm: () => this.modal.hide()
     });
   }
 

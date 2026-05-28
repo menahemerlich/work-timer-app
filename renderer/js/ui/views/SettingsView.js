@@ -5,6 +5,9 @@ export class SettingsView {
     this.employersList = document.getElementById("employersList");
     this.feedbackEl = document.getElementById("settingsFeedback");
     this.settingsPanel = document.getElementById("settingsPanel");
+    this.hardPullBtn = document.getElementById("hardPullBtn");
+    this.monthlyTargetDaysInput = document.getElementById("monthlyTargetDays");
+    this.monthlyTargetHoursPerDayInput = document.getElementById("monthlyTargetHoursPerDay");
   }
 
   showFeedback(message, type = "success") {
@@ -22,7 +25,7 @@ export class SettingsView {
     }, 2500);
   }
 
-  renderEmployers(employers, { editingId, onStartEdit, onSaveEdit, onCancelEdit, onDelete }) {
+  renderEmployers(employers, { editingId, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onSetHourlyRate }) {
     this.preserveFocusBeforeListUpdate();
     this.employersList.innerHTML = "";
 
@@ -83,6 +86,23 @@ export class SettingsView {
         nameEl.textContent = employer.name;
         nameRow.appendChild(nameEl);
         nameBlock.appendChild(nameRow);
+
+        const rateRow = document.createElement("div");
+        rateRow.className = "employer-rate-row";
+        rateRow.innerHTML = `
+          <label class="employer-rate-label">₪ לשעה</label>
+          <input class="employer-rate-input" type="number" inputmode="decimal" step="0.01" min="0" placeholder="לדוגמה: 75" />
+        `;
+
+        const rateInput = rateRow.querySelector(".employer-rate-input");
+        rateInput.value = employer.hourlyRate ?? "";
+        rateInput.addEventListener("change", () => {
+          const raw = rateInput.value;
+          const num = raw === "" ? null : Number(raw);
+          onSetHourlyRate?.(employer.id, Number.isFinite(num) ? num : null);
+        });
+
+        nameBlock.appendChild(rateRow);
       }
 
       const actions = document.createElement("div");

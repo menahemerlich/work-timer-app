@@ -74,6 +74,7 @@ async function startApp() {
   const settingsController = new SettingsController({
     view: settingsView,
     employerRepo,
+  modal,
     onEmployersChanged: () => reportsController.refresh()
   });
 
@@ -82,6 +83,8 @@ async function startApp() {
     modal,
     timerService,
     employerRepo,
+    logRepo,
+    reportService,
     onLogAdded: () => reportsController.refresh(),
     onEmployersChanged: () => {
       settingsController.refresh();

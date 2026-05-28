@@ -181,6 +181,80 @@
   padding: 16px;
 }
 
+.summary-overall-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.calc-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 2px solid #c4b5fd;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calc-btn:hover {
+  background: #ffffff;
+  border-color: #a78bfa;
+}
+
+.monthly-goal-box {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.goal-box {
+  border: 2px solid #e9d5ff;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff, #faf5ff);
+  padding: 12px 12px 10px;
+  text-align: right;
+}
+
+.goal-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #6d28d9;
+  margin-bottom: 8px;
+}
+
+.goal-metrics {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #4c1d95;
+  margin-bottom: 8px;
+}
+
+.goal-pct {
+  color: #7c3aed;
+}
+
+.goal-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: #ede9fe;
+  overflow: hidden;
+  border: 1px solid #ddd6fe;
+}
+
+.goal-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #a78bfa, #db2777);
+  border-radius: 999px;
+}
+
 .filter-group {
   flex: 1;
   min-width: 160px;

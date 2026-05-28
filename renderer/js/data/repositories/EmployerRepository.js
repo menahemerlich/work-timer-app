@@ -38,7 +38,12 @@ export class SettingsRepository {
 
   constructor() {
 
-    this.settings = { employers: [], lastSelectedEmployerId: null };
+    this.settings = {
+      employers: [],
+      lastSelectedEmployerId: null,
+      monthlyTargetDays: null,
+      monthlyTargetHoursPerDay: null
+    };
 
     this.initialized = false;
 
@@ -66,7 +71,11 @@ export class SettingsRepository {
 
       employers: (data.employers || []).map((item) => new Employer(item)),
 
-      lastSelectedEmployerId: data.lastSelectedEmployerId || null
+      lastSelectedEmployerId: data.lastSelectedEmployerId || null,
+
+      monthlyTargetDays: data.monthlyTargetDays ?? null,
+
+      monthlyTargetHoursPerDay: data.monthlyTargetHoursPerDay ?? null
 
     });
 
@@ -96,6 +105,12 @@ export class SettingsRepository {
 
       lastSelectedEmployerId: settings.lastSelectedEmployerId || null
 
+      ,
+
+      monthlyTargetDays: settings.monthlyTargetDays ?? null,
+
+      monthlyTargetHoursPerDay: settings.monthlyTargetHoursPerDay ?? null
+
     };
 
   }
@@ -108,7 +123,11 @@ export class SettingsRepository {
 
       employers: [...this.settings.employers],
 
-      lastSelectedEmployerId: this.settings.lastSelectedEmployerId
+      lastSelectedEmployerId: this.settings.lastSelectedEmployerId,
+
+      monthlyTargetDays: this.settings.monthlyTargetDays,
+
+      monthlyTargetHoursPerDay: this.settings.monthlyTargetHoursPerDay
 
     };
 
@@ -138,9 +157,12 @@ export class SettingsRepository {
 
         createdAt: employer.createdAt,
 
-        color: employer.color || null
+        color: employer.color || null,
+
+        hourlyRate: employer.hourlyRate ?? null
 
       });
+      window.dispatchEvent(new CustomEvent("settings:changed"));
 
     } catch (error) {
 
@@ -165,7 +187,28 @@ export class SettingsRepository {
 
 
     await api.save({ lastSelectedEmployerId: this.settings.lastSelectedEmployerId });
+    window.dispatchEvent(new CustomEvent("settings:changed"));
 
+  }
+
+  async persistMonthlyTargets() {
+    const api = getSettingsApi();
+    if (!api) {
+      return;
+    }
+    await api.save({
+      monthlyTargetDays: this.settings.monthlyTargetDays,
+      monthlyTargetHoursPerDay: this.settings.monthlyTargetHoursPerDay
+    });
+    window.dispatchEvent(new CustomEvent("settings:changed"));
+  }
+
+  async saveMonthlyTargets({ monthlyTargetDays, monthlyTargetHoursPerDay }) {
+    this.settings.monthlyTargetDays = monthlyTargetDays ?? null;
+    this.settings.monthlyTargetHoursPerDay = monthlyTargetHoursPerDay ?? null;
+    this.applyCache(this.settings);
+    await this.persistMonthlyTargets();
+    window.dispatchEvent(new CustomEvent("settings:changed"));
   }
 
 
@@ -183,6 +226,7 @@ export class SettingsRepository {
 
 
     await api.delete(id);
+    window.dispatchEvent(new CustomEvent("settings:changed"));
 
   }
 
@@ -196,7 +240,8 @@ export class SettingsRepository {
 
       ...this.settings.employers.map((employer) => this.persistEmployer(employer)),
 
-      this.persistLastSelected()
+      this.persistLastSelected(),
+      this.persistMonthlyTargets()
 
     ]).catch(console.error);
 
@@ -332,6 +377,19 @@ export class EmployerRepository {
 
     }
 
+  }
+
+  async setHourlyRate(id, hourlyRate) {
+    const settings = this.settingsRepository.getSettings();
+    const employer = settings.employers.find((item) => item.id === id);
+    if (!employer) {
+      return null;
+    }
+
+    employer.hourlyRate = hourlyRate;
+    this.settingsRepository.applyCache(settings);
+    await this.settingsRepository.persistEmployer(employer);
+    return employer;
   }
 
 

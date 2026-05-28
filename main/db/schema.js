@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const MIGRATION_V1 = `
 CREATE TABLE IF NOT EXISTS employers (
@@ -91,4 +91,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_employers_name_active
   ON employers(name) WHERE deleted_at IS NULL;
 `;
 
-module.exports = { SCHEMA_VERSION, MIGRATION_V1, MIGRATION_V2 };
+const MIGRATION_V3 = `
+ALTER TABLE employers ADD COLUMN hourly_rate REAL;
+`;
+
+module.exports = { SCHEMA_VERSION, MIGRATION_V1, MIGRATION_V2, MIGRATION_V3 };

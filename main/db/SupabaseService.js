@@ -202,6 +202,7 @@ class SupabaseService {
       name: employer.name,
       created_at: employer.createdAt,
       color: employer.color || null,
+      hourly_rate: employer.hourlyRate ?? null,
       updated_at: employer.updatedAt || new Date().toISOString(),
       deleted_at: null
     });

@@ -60,6 +60,7 @@
         <div class="tab-content-host">
         <section class="tab-panel active" data-panel="timer">
           <div class="timer-stage" id="timerStage" data-state="idle">
+            <div id="motivationBanner" class="motivation-banner" hidden></div>
             <div class="timer-hero">
               <aside class="employer-chip" id="employerBadge" hidden>
                 <div class="employer-chip-inner">
@@ -207,6 +208,7 @@
                 <div id="monthlySummaryEmployerChips" class="employer-filter-chips"></div>
               </div>
             </div>
+            <div id="monthlyGoalBox" class="monthly-goal-box" hidden></div>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -248,6 +250,31 @@
               <button type="button" class="btn-action btn-start" id="addEmployerBtn">+ הוסף</button>
             </div>
             <div id="employersList"></div>
+
+            <div class="settings-goals">
+              <div class="section-title">🎯 יעד חודשי</div>
+              <p class="settings-hint">הגדר יעד לחודש: כמה ימי עבודה וכמה שעות ביום.</p>
+              <div class="goals-row">
+                <div class="goal-group">
+                  <label class="field-label" for="monthlyTargetDays">ימי יעד לחודש</label>
+                  <input id="monthlyTargetDays" type="number" class="field-input" min="0" step="1" placeholder="לדוגמה: 22" />
+                </div>
+                <div class="goal-group">
+                  <label class="field-label" for="monthlyTargetHoursPerDay">שעות יעד ליום</label>
+                  <input id="monthlyTargetHoursPerDay" type="number" class="field-input" min="0" step="0.25" placeholder="לדוגמה: 8" />
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-advanced">
+              <div class="section-title">🛡️ מתקדם</div>
+              <p class="settings-hint">
+                משיכת נתונים מהענן תחליף את כל הנתונים המקומיים.
+              </p>
+              <button type="button" class="btn-soft btn-danger-soft" id="hardPullBtn">
+                ☁️ משוך מהענן והחלף מקומי
+              </button>
+            </div>
           </div>
         </section>
         </div>

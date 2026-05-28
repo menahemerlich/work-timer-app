@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     getStatus: () => ipcRenderer.invoke("sync:getStatus"),
     forceSync: () => ipcRenderer.invoke("sync:forceSync"),
     isOnline: () => ipcRenderer.invoke("sync:isOnline"),
+    hardPullReplaceLocal: (password) => ipcRenderer.invoke("sync:hardPullReplaceLocal", password),
     onStatus: (callback) => {
       const listener = (_event, status) => callback(status);
       ipcRenderer.on("sync:status", listener);

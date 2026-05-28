@@ -15,6 +15,8 @@ export class TimerController {
     modal,
     timerService,
     employerRepo,
+    logRepo,
+    reportService,
     onLogAdded,
     onEmployersChanged
   }) {
@@ -22,6 +24,8 @@ export class TimerController {
     this.modal = modal;
     this.timerService = timerService;
     this.employerRepo = employerRepo;
+    this.logRepo = logRepo;
+    this.reportService = reportService;
     this.onLogAdded = onLogAdded;
     this.onEmployersChanged = onEmployersChanged;
   }
@@ -35,8 +39,20 @@ export class TimerController {
     });
     this.view.sessionNoteBtn?.addEventListener("click", () => this.handleSessionNote());
 
-    this.timerService.subscribe((snapshot) => this.view.render(snapshot));
+    this.timerService.subscribe((snapshot) => {
+      this.view.render(snapshot);
+      this.updateMotivation();
+    });
     this.timerService.restoreRunningSession();
+    this.updateMotivation();
+
+    window.addEventListener("logs:changed", () => this.updateMotivation());
+    window.addEventListener("settings:changed", () => this.updateMotivation());
+
+    // Rotate motivation phrase every few minutes within same bucket
+    if (!this.motivationTimer) {
+      this.motivationTimer = setInterval(() => this.rotateMotivationPhrase(), 180000);
+    }
 
     setInterval(() => {
       this.timerService.pollCommand({
@@ -220,10 +236,96 @@ export class TimerController {
       const log = await this.timerService.stopAsync();
       if (log) {
         this.onLogAdded?.();
+        this.updateMotivation();
       }
     } catch (error) {
       console.error("Failed to save work log:", error);
       alert(error.message || "שמירת הדוח נכשלה.");
     }
+  }
+
+  updateMotivation(referenceDate = new Date()) {
+    if (!this.view?.setMotivation || !this.reportService || !this.logRepo) {
+      return;
+    }
+
+    const settings = this.employerRepo.settingsRepository.getSettings();
+    const targetDays = settings.monthlyTargetDays ?? null;
+    const hoursPerDay = settings.monthlyTargetHoursPerDay ?? null;
+    if (!targetDays || !hoursPerDay || targetDays <= 0 || hoursPerDay <= 0) {
+      this.view.setMotivation("");
+      return;
+    }
+
+    const allLogs = this.logRepo.getAll();
+    const monthLogs = this.reportService.getCurrentMonthLogs(allLogs, referenceDate);
+    const actualHours = this.reportService.getTotalDurationMs(monthLogs) / 3600000;
+
+    const daysElapsed = referenceDate.getDate();
+    const expectedWorkDaysSoFar = Math.min(daysElapsed, targetDays);
+    const expectedHours = expectedWorkDaysSoFar * hoursPerDay;
+    const percent = expectedHours > 0 ? (actualHours / expectedHours) * 100 : 0;
+
+    // Lazy import to keep controller lightweight
+    import("../../core/utils/motivationPhrases.js")
+      .then(({ getMotivationBucketIndex, pickMotivationPhrase }) => {
+        const seed = referenceDate.toLocaleDateString("he-IL");
+        const bucketIdx = getMotivationBucketIndex(percent);
+        if (this.motivationBucketIdx !== bucketIdx) {
+          this.motivationBucketIdx = bucketIdx;
+          this.motivationPhraseIdx = 0;
+        }
+        const phrase = pickMotivationPhrase({
+          percent,
+          seed,
+          index: this.motivationPhraseIdx || 0
+        });
+        this.view.setMotivation(phrase);
+      })
+      .catch(() => {
+        // ignore
+      });
+  }
+
+  rotateMotivationPhrase(referenceDate = new Date()) {
+    const settings = this.employerRepo.settingsRepository.getSettings();
+    const targetDays = settings.monthlyTargetDays ?? null;
+    const hoursPerDay = settings.monthlyTargetHoursPerDay ?? null;
+    if (!targetDays || !hoursPerDay || targetDays <= 0 || hoursPerDay <= 0) {
+      return;
+    }
+
+    const allLogs = this.logRepo.getAll();
+    const monthLogs = this.reportService.getCurrentMonthLogs(allLogs, referenceDate);
+    const actualHours = this.reportService.getTotalDurationMs(monthLogs) / 3600000;
+    const daysElapsed = referenceDate.getDate();
+    const expectedWorkDaysSoFar = Math.min(daysElapsed, targetDays);
+    const expectedHours = expectedWorkDaysSoFar * hoursPerDay;
+    const percent = expectedHours > 0 ? (actualHours / expectedHours) * 100 : 0;
+
+    import("../../core/utils/motivationPhrases.js")
+      .then(({ getMotivationBucketIndex, getMotivationPhrases, pickMotivationPhrase }) => {
+        const seed = referenceDate.toLocaleDateString("he-IL");
+        const bucketIdx = getMotivationBucketIndex(percent);
+        const phrases = getMotivationPhrases(percent);
+        if (!phrases.length) {
+          return;
+        }
+        if (this.motivationBucketIdx !== bucketIdx) {
+          this.motivationBucketIdx = bucketIdx;
+          this.motivationPhraseIdx = 0;
+        } else {
+          this.motivationPhraseIdx = ((this.motivationPhraseIdx || 0) + 1) % phrases.length;
+        }
+        const phrase = pickMotivationPhrase({
+          percent,
+          seed,
+          index: this.motivationPhraseIdx || 0
+        });
+        this.view.setMotivation(phrase);
+      })
+      .catch(() => {
+        // ignore
+      });
   }
 }

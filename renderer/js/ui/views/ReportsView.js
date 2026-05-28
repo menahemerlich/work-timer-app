@@ -17,6 +17,7 @@ export class ReportsView {
     this.totalDuration = document.getElementById("totalDuration");
     this.monthlySummaryBody = document.getElementById("monthlySummaryBody");
     this.monthlySummaryBox = document.getElementById("monthlySummaryBox");
+    this.monthlyGoalBox = document.getElementById("monthlyGoalBox");
     this.monthlySummaryEmployerChips = document.getElementById("monthlySummaryEmployerChips");
     this.monthlySummarySelectAll = document.getElementById("monthlySummarySelectAll");
     this.monthlySummaryClearAll = document.getElementById("monthlySummaryClearAll");
@@ -384,8 +385,20 @@ export class ReportsView {
     this.totalDuration.textContent = totalStr;
   }
 
-  renderMonthlySummary(summary, { hasMonthData = false, getEmployerColorByName } = {}) {
+  renderMonthlySummary(
+    summary,
+    {
+      hasMonthData = false,
+      getEmployerColorByName,
+      onOpenCalculator = null,
+      goalProgress = null
+    } = {}
+  ) {
     this.monthlySummaryBody.innerHTML = "";
+    if (this.monthlyGoalBox) {
+      this.monthlyGoalBox.hidden = true;
+      this.monthlyGoalBox.innerHTML = "";
+    }
 
     if (!hasMonthData) {
       this.monthlySummaryBox.style.display = "none";
@@ -399,6 +412,24 @@ export class ReportsView {
       tr.innerHTML = `<td colspan="3" class="empty-summary">אין נתונים למעסיקים שנבחרו בחודש זה</td>`;
       this.monthlySummaryBody.appendChild(tr);
       return;
+    }
+
+    if (goalProgress && this.monthlyGoalBox) {
+      const pct = Math.max(0, Math.min(100, goalProgress.percent || 0));
+      this.monthlyGoalBox.hidden = false;
+      this.monthlyGoalBox.innerHTML = `
+        <div class="goal-box">
+          <div class="goal-title">יעד חודשי (עד היום)</div>
+          <div class="goal-metrics">
+            <span><strong>${goalProgress.actualHoursStr}</strong> בפועל</span>
+            <span>מתוך <strong>${goalProgress.expectedHoursStr}</strong> צפוי</span>
+            <span class="goal-pct"><strong>${goalProgress.percentStr}</strong></span>
+          </div>
+          <div class="goal-bar" aria-hidden="true">
+            <div class="goal-bar-fill" style="width:${pct}%"></div>
+          </div>
+        </div>
+      `;
     }
 
     summary.rows.forEach((row) => {
@@ -417,11 +448,27 @@ export class ReportsView {
 
     const overallRow = document.createElement("tr");
     overallRow.className = "summary-row";
+    const calcBtn = onOpenCalculator
+      ? `<button type="button" class="calc-btn" id="monthlyCalcBtn" title="חישוב שכר" aria-label="חישוב שכר">🧮</button>`
+      : "";
     overallRow.innerHTML = `
-      <td><strong>סה"כ כללי</strong></td>
+      <td>
+        <div class="summary-overall-cell">
+          <strong>סה"כ כללי</strong>
+          ${calcBtn}
+        </div>
+      </td>
       <td><strong>${summary.overall.workDays}</strong></td>
       <td><strong>${summary.overall.totalStr}</strong></td>
     `;
     this.monthlySummaryBody.appendChild(overallRow);
+
+    if (onOpenCalculator) {
+      overallRow.querySelector("#monthlyCalcBtn")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onOpenCalculator();
+      });
+    }
   }
 }
