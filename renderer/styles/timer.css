@@ -125,19 +125,21 @@
 
 .motivation-stars .star-1 {
   font-size: 14px;
-  animation: orbitStar1 14s linear infinite, starBob 1.6s ease-in-out infinite;
+  animation: orbitStar1 22s linear infinite, starBob 3.2s ease-in-out infinite;
 }
 
 .motivation-stars .star-2 {
   font-size: 12px;
   opacity: 0.95;
-  animation: orbitStar2 16s linear infinite, starBob 1.9s ease-in-out infinite;
+  animation: orbitStar2 26s linear infinite, starBob 3.6s ease-in-out infinite;
+  animation-delay: 0s, -0.45s;
 }
 
 .motivation-stars .star-3 {
   font-size: 10px;
   opacity: 0.9;
-  animation: orbitStar3 18s linear infinite, starBob 2.1s ease-in-out infinite;
+  animation: orbitStar3 30s linear infinite, starBob 4.0s ease-in-out infinite;
+  animation-delay: 0s, -0.9s;
 }
 
 @keyframes motivationGradient {
@@ -183,8 +185,10 @@
 }
 
 @keyframes starBob {
-  0%, 100% { transform: translateY(0) scale(1); filter: saturate(1); }
-  50% { transform: translateY(-2px) scale(1.05); filter: saturate(1.15); }
+  0%, 100% { transform: translateY(10px) scale(1); filter: saturate(1); }
+  25% { transform: translateY(-10px) scale(1.06); filter: saturate(1.15); }
+  50% { transform: translateY(12px) scale(1.02); filter: saturate(1.05); }
+  75% { transform: translateY(-12px) scale(1.06); filter: saturate(1.18); }
 }
 
 @keyframes sparkleTrail {
