@@ -15,6 +15,7 @@ function createMiniWindow() {
     alwaysOnTop: true,
     resizable: false,
     useContentSize: true,
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, "../../preload/preload.js")
     }

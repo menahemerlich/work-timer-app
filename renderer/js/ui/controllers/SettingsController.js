@@ -38,18 +38,49 @@ export class SettingsController {
     this.view.monthlyTargetHoursPerDayInput?.addEventListener("change", () => {
       void this.handleMonthlyTargetsChanged();
     });
+
+    this.view.earningsWindowCornerSelect?.addEventListener("change", () => {
+      void this.handleEarningsWindowCornerChanged();
+    });
+
+    this.view.openEarningsBtn?.addEventListener("click", () => {
+      window.electronAPI?.earnings?.open();
+      this.view.showFeedback("חלון הרווח נפתח.");
+    });
+
+    this.view.motivationPositionSelect?.addEventListener("change", () => {
+      void this.handleMotivationSettingsChanged();
+    });
+    this.view.motivationIntervalInput?.addEventListener("change", () => {
+      void this.handleMotivationSettingsChanged();
+    });
+    this.view.motivationDurationInput?.addEventListener("change", () => {
+      void this.handleMotivationSettingsChanged();
+    });
   }
 
   refresh() {
     const settings = this.employerRepo.settingsRepository.getSettings?.()
       ? this.employerRepo.settingsRepository.getSettings()
-      : { monthlyTargetDays: null, monthlyTargetHoursPerDay: null };
+      : { monthlyTargetDays: null, monthlyTargetHoursPerDay: null, earningsWindowCorner: null };
 
     if (this.view.monthlyTargetDaysInput) {
       this.view.monthlyTargetDaysInput.value = settings.monthlyTargetDays ?? "";
     }
     if (this.view.monthlyTargetHoursPerDayInput) {
       this.view.monthlyTargetHoursPerDayInput.value = settings.monthlyTargetHoursPerDay ?? "";
+    }
+    if (this.view.earningsWindowCornerSelect) {
+      this.view.earningsWindowCornerSelect.value = settings.earningsWindowCorner || "top-left";
+    }
+    if (this.view.motivationPositionSelect) {
+      this.view.motivationPositionSelect.value = settings.motivationPosition || "top";
+    }
+    if (this.view.motivationIntervalInput) {
+      this.view.motivationIntervalInput.value = settings.motivationIntervalMinutes ?? "";
+    }
+    if (this.view.motivationDurationInput) {
+      this.view.motivationDurationInput.value = settings.motivationDurationSeconds ?? "";
     }
 
     this.view.renderEmployers(this.employerRepo.getAll(), {
@@ -195,6 +226,45 @@ export class SettingsController {
       this.onEmployersChanged?.();
     } catch (error) {
       this.view.showFeedback(error.message || "עדכון יעד חודשי נכשל.", "error");
+    }
+  }
+
+  async handleEarningsWindowCornerChanged() {
+    const corner = this.view.earningsWindowCornerSelect?.value || "top-left";
+    try {
+      await this.employerRepo.settingsRepository.saveEarningsWindowCorner(corner);
+      this.view.showFeedback("מיקום חלון הרווח עודכן.");
+    } catch (error) {
+      this.view.showFeedback(error.message || "עדכון מיקום החלון נכשל.", "error");
+    }
+  }
+
+  async handleMotivationSettingsChanged() {
+    const position = this.view.motivationPositionSelect?.value || "top";
+    const intervalRaw = this.view.motivationIntervalInput?.value ?? "";
+    const durationRaw = this.view.motivationDurationInput?.value ?? "";
+
+    const intervalMinutes = intervalRaw === "" ? null : Number(intervalRaw);
+    const durationSeconds = durationRaw === "" ? null : Number(durationRaw);
+
+    if (intervalMinutes !== null && (!Number.isFinite(intervalMinutes) || intervalMinutes <= 0)) {
+      this.view.showFeedback("תדירות חייבת להיות מספר חיובי.", "error");
+      return;
+    }
+    if (durationSeconds !== null && (!Number.isFinite(durationSeconds) || durationSeconds <= 0)) {
+      this.view.showFeedback("משך חייב להיות מספר חיובי.", "error");
+      return;
+    }
+
+    try {
+      await this.employerRepo.settingsRepository.saveMotivationSettings({
+        position,
+        intervalMinutes,
+        durationSeconds
+      });
+      this.view.showFeedback("הגדרות באנר המוטיבציה עודכנו.");
+    } catch (error) {
+      this.view.showFeedback(error.message || "עדכון הגדרות הבאנר נכשל.", "error");
     }
   }
 

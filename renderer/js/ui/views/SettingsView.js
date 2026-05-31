@@ -8,6 +8,11 @@ export class SettingsView {
     this.hardPullBtn = document.getElementById("hardPullBtn");
     this.monthlyTargetDaysInput = document.getElementById("monthlyTargetDays");
     this.monthlyTargetHoursPerDayInput = document.getElementById("monthlyTargetHoursPerDay");
+    this.earningsWindowCornerSelect = document.getElementById("earningsWindowCorner");
+    this.openEarningsBtn = document.getElementById("openEarningsBtn");
+    this.motivationPositionSelect = document.getElementById("motivationPosition");
+    this.motivationIntervalInput = document.getElementById("motivationInterval");
+    this.motivationDurationInput = document.getElementById("motivationDuration");
   }
 
   showFeedback(message, type = "success") {

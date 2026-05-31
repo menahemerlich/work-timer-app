@@ -3,6 +3,30 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("electronAPI", {
   openMiniWindow: () => ipcRenderer.send("open-mini-window"),
 
+  window: {
+    minimize: () => ipcRenderer.send("window:minimize"),
+    close: () => ipcRenderer.send("window:close"),
+    setCorner: (corner) => ipcRenderer.send("window:setCorner", corner)
+  },
+
+  earnings: {
+    open: () => ipcRenderer.send("earnings:open")
+  },
+
+  motivation: {
+    notifyConfigChanged: () => ipcRenderer.send("motivation:configChanged"),
+    onShow: (callback) => {
+      const listener = (_event, phrase) => callback(phrase);
+      ipcRenderer.on("motivation:show", listener);
+      return () => ipcRenderer.removeListener("motivation:show", listener);
+    },
+    onHide: (callback) => {
+      const listener = () => callback();
+      ipcRenderer.on("motivation:hide", listener);
+      return () => ipcRenderer.removeListener("motivation:hide", listener);
+    }
+  },
+
   db: {
     employers: {
       getAll: () => ipcRenderer.invoke("db:employers:getAll"),

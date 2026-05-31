@@ -1,0 +1,146 @@
+@import url("https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&display=swap");
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Rubik", system-ui, sans-serif;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  background: transparent;
+  overflow: hidden;
+}
+
+.toast {
+  position: relative;
+  display: inline-flex;
+  width: auto;
+  max-width: calc(100vw - 48px);
+  padding: 4px;
+  border-radius: 22px;
+  background: conic-gradient(
+    from 0deg,
+    #f9a8d4,
+    #c4b5fd,
+    #7dd3fc,
+    #6ee7b7,
+    #fdba74,
+    #f9a8d4
+  );
+  background-size: 200% 200%;
+  box-shadow: 0 14px 36px rgba(167, 139, 250, 0.4);
+  will-change: opacity, transform;
+  animation: toastHue 6s linear infinite;
+
+  /* Start position — fully off-screen to the right (RTL: comes from the right) */
+  opacity: 0;
+  transform: translateX(100vw);
+  transition:
+    opacity 0.5s ease,
+    transform 0.62s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Visible — slid into place */
+.toast.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Leaving — continues sliding out to the left */
+.toast.leaving {
+  opacity: 0;
+  transform: translateX(-100vw);
+  transition:
+    opacity 0.5s ease,
+    transform 0.62s cubic-bezier(0.55, 0, 0.55, 0.2);
+}
+
+.toast-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 26px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  min-width: 0;
+}
+
+.toast-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  animation: toastFloat 2.6s ease-in-out infinite;
+}
+
+.toast-text {
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  /* Emoji glyphs must keep their native colors, so they are excluded from the
+     gradient text clip by rendering them in a sibling span (.toast-emoji). */
+  background: linear-gradient(135deg, #7c3aed, #db2777, #0ea5e9);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: toastTextHue 5s ease infinite;
+}
+
+.toast-emoji {
+  -webkit-text-fill-color: initial;
+  -webkit-background-clip: initial;
+  background: none;
+  background-clip: initial;
+}
+
+.toast-spark {
+  position: absolute;
+  font-size: 16px;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+.toast-spark-1 {
+  top: -6px;
+  right: 18px;
+  animation: sparkTwinkle 1.8s ease-in-out infinite;
+}
+
+.toast-spark-2 {
+  bottom: -6px;
+  left: 22px;
+  font-size: 13px;
+  animation: sparkTwinkle 2.2s ease-in-out infinite 0.6s;
+}
+
+@keyframes toastHue {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes toastTextHue {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes toastFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(8deg); }
+}
+
+@keyframes sparkTwinkle {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.3); }
+}

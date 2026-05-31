@@ -28,6 +28,8 @@
       "main/**/*",
       "renderer/**/*",
       "mini/**/*",
+      "earnings/**/*",
+      "motivation/**/*",
       "preload/**/*",
       "shared/**/*",
       "package.json"

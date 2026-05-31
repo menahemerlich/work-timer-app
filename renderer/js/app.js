@@ -108,6 +108,13 @@ async function startApp() {
   initConfirmDialog(modal);
   tabNav.init();
 
+  document.getElementById("windowMinimizeBtn")?.addEventListener("click", () => {
+    window.electronAPI?.window?.minimize();
+  });
+  document.getElementById("windowCloseBtn")?.addEventListener("click", () => {
+    window.electronAPI?.window?.close();
+  });
+
   safeInit("סנכרון", () => syncStatusController.init());
   safeInit("התחברות", () => authController.init());
   safeInit("הגדרות", () => settingsController.init());

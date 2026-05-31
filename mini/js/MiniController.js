@@ -43,11 +43,15 @@ async function update() {
   toggleBtn.textContent = state.isPaused ? "▶ המשך" : "⏸ השהיה";
 }
 
-setInterval(update, 500);
+setInterval(update, 1000);
 update();
 
 document.getElementById("toggleBtn").addEventListener("click", () => {
   window.electronAPI?.db?.timer?.setCommand(TIMER_COMMANDS.TOGGLE);
+});
+
+document.getElementById("miniCloseBtn")?.addEventListener("click", () => {
+  window.electronAPI?.window?.close();
 });
 
 if (window.electronAPI?.db?.timer?.onCommand) {

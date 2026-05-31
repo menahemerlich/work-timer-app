@@ -98,4 +98,8 @@ function stopDataServices() {
   localDb?.close();
 }
 
-module.exports = { initDataLayer, startDataServices, stopDataServices };
+function getLocalDb() {
+  return localDb;
+}
+
+module.exports = { initDataLayer, startDataServices, stopDataServices, getLocalDb };

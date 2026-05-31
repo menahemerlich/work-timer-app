@@ -326,7 +326,11 @@ class LocalDatabaseService {
       employers: [],
       lastSelectedEmployerId: null,
       monthlyTargetDays: null,
-      monthlyTargetHoursPerDay: null
+      monthlyTargetHoursPerDay: null,
+      earningsWindowCorner: null,
+      motivationPosition: null,
+      motivationIntervalMinutes: null,
+      motivationDurationSeconds: null
     };
     settings.employers = this.getAllEmployers();
 
@@ -339,6 +343,18 @@ class LocalDatabaseService {
       }
       if (row.key === "monthlyTargetHoursPerDay") {
         settings.monthlyTargetHoursPerDay = row.value ? Number(row.value) : null;
+      }
+      if (row.key === "earningsWindowCorner") {
+        settings.earningsWindowCorner = row.value || null;
+      }
+      if (row.key === "motivationPosition") {
+        settings.motivationPosition = row.value || null;
+      }
+      if (row.key === "motivationIntervalMinutes") {
+        settings.motivationIntervalMinutes = row.value ? Number(row.value) : null;
+      }
+      if (row.key === "motivationDurationSeconds") {
+        settings.motivationDurationSeconds = row.value ? Number(row.value) : null;
       }
     });
 
@@ -400,6 +416,50 @@ class LocalDatabaseService {
           updatedAt: ts
         });
       }
+    }
+
+    if (settings.earningsWindowCorner !== undefined) {
+      this.db
+        .prepare(
+          `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+        )
+        .run("earningsWindowCorner", settings.earningsWindowCorner || "", ts);
+    }
+
+    if (settings.motivationPosition !== undefined) {
+      this.db
+        .prepare(
+          `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+        )
+        .run("motivationPosition", settings.motivationPosition || "", ts);
+    }
+
+    if (settings.motivationIntervalMinutes !== undefined) {
+      const value =
+        settings.motivationIntervalMinutes === null
+          ? ""
+          : String(settings.motivationIntervalMinutes);
+      this.db
+        .prepare(
+          `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+        )
+        .run("motivationIntervalMinutes", value, ts);
+    }
+
+    if (settings.motivationDurationSeconds !== undefined) {
+      const value =
+        settings.motivationDurationSeconds === null
+          ? ""
+          : String(settings.motivationDurationSeconds);
+      this.db
+        .prepare(
+          `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+        )
+        .run("motivationDurationSeconds", value, ts);
     }
   }
 

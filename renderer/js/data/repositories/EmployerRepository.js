@@ -42,7 +42,11 @@ export class SettingsRepository {
       employers: [],
       lastSelectedEmployerId: null,
       monthlyTargetDays: null,
-      monthlyTargetHoursPerDay: null
+      monthlyTargetHoursPerDay: null,
+      earningsWindowCorner: null,
+      motivationPosition: null,
+      motivationIntervalMinutes: null,
+      motivationDurationSeconds: null
     };
 
     this.initialized = false;
@@ -75,7 +79,15 @@ export class SettingsRepository {
 
       monthlyTargetDays: data.monthlyTargetDays ?? null,
 
-      monthlyTargetHoursPerDay: data.monthlyTargetHoursPerDay ?? null
+      monthlyTargetHoursPerDay: data.monthlyTargetHoursPerDay ?? null,
+
+      earningsWindowCorner: data.earningsWindowCorner ?? null,
+
+      motivationPosition: data.motivationPosition ?? null,
+
+      motivationIntervalMinutes: data.motivationIntervalMinutes ?? null,
+
+      motivationDurationSeconds: data.motivationDurationSeconds ?? null
 
     });
 
@@ -109,7 +121,15 @@ export class SettingsRepository {
 
       monthlyTargetDays: settings.monthlyTargetDays ?? null,
 
-      monthlyTargetHoursPerDay: settings.monthlyTargetHoursPerDay ?? null
+      monthlyTargetHoursPerDay: settings.monthlyTargetHoursPerDay ?? null,
+
+      earningsWindowCorner: settings.earningsWindowCorner ?? null,
+
+      motivationPosition: settings.motivationPosition ?? null,
+
+      motivationIntervalMinutes: settings.motivationIntervalMinutes ?? null,
+
+      motivationDurationSeconds: settings.motivationDurationSeconds ?? null
 
     };
 
@@ -127,7 +147,15 @@ export class SettingsRepository {
 
       monthlyTargetDays: this.settings.monthlyTargetDays,
 
-      monthlyTargetHoursPerDay: this.settings.monthlyTargetHoursPerDay
+      monthlyTargetHoursPerDay: this.settings.monthlyTargetHoursPerDay,
+
+      earningsWindowCorner: this.settings.earningsWindowCorner,
+
+      motivationPosition: this.settings.motivationPosition,
+
+      motivationIntervalMinutes: this.settings.motivationIntervalMinutes,
+
+      motivationDurationSeconds: this.settings.motivationDurationSeconds
 
     };
 
@@ -208,6 +236,33 @@ export class SettingsRepository {
     this.settings.monthlyTargetHoursPerDay = monthlyTargetHoursPerDay ?? null;
     this.applyCache(this.settings);
     await this.persistMonthlyTargets();
+    window.dispatchEvent(new CustomEvent("settings:changed"));
+  }
+
+  async saveEarningsWindowCorner(corner) {
+    const api = getSettingsApi();
+    this.settings.earningsWindowCorner = corner || null;
+    this.applyCache(this.settings);
+    if (api) {
+      await api.save({ earningsWindowCorner: corner || null });
+    }
+    window.dispatchEvent(new CustomEvent("settings:changed"));
+  }
+
+  async saveMotivationSettings({ position, intervalMinutes, durationSeconds }) {
+    const api = getSettingsApi();
+    this.settings.motivationPosition = position || null;
+    this.settings.motivationIntervalMinutes = intervalMinutes ?? null;
+    this.settings.motivationDurationSeconds = durationSeconds ?? null;
+    this.applyCache(this.settings);
+    if (api) {
+      await api.save({
+        motivationPosition: position || null,
+        motivationIntervalMinutes: intervalMinutes ?? null,
+        motivationDurationSeconds: durationSeconds ?? null
+      });
+    }
+    window.electronAPI?.motivation?.notifyConfigChanged?.();
     window.dispatchEvent(new CustomEvent("settings:changed"));
   }
 
