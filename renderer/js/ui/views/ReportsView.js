@@ -26,6 +26,7 @@ export class ReportsView {
     this.monthlySummaryEmployerChips = document.getElementById("monthlySummaryEmployerChips");
     this.monthlySummarySelectAll = document.getElementById("monthlySummarySelectAll");
     this.monthlySummaryClearAll = document.getElementById("monthlySummaryClearAll");
+    this.monthlySummaryMonth = document.getElementById("monthlySummaryMonth");
     this.exportFilteredBtn = document.getElementById("exportFilteredBtn");
     this.exportEndDayBtn = document.getElementById("exportEndDayBtn");
     this.exportCurrentMonthBtn = document.getElementById("exportCurrentMonthBtn");
@@ -415,6 +416,22 @@ export class ReportsView {
     this.totalDuration.textContent = totalStr;
   }
 
+  renderMonthOptions(options, selectedKey) {
+    if (!this.monthlySummaryMonth) {
+      return;
+    }
+    this.monthlySummaryMonth.innerHTML = options
+      .map(
+        (opt) =>
+          `<option value="${opt.key}"${opt.key === selectedKey ? " selected" : ""}>${opt.label}</option>`
+      )
+      .join("");
+  }
+
+  getSelectedMonthKey() {
+    return this.monthlySummaryMonth?.value || null;
+  }
+
   renderMonthlySummary(
     summary,
     {
@@ -439,7 +456,7 @@ export class ReportsView {
 
     if (!summary.rows.length) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="3" class="empty-summary">אין נתונים למעסיקים שנבחרו בחודש זה</td>`;
+      tr.innerHTML = `<td colspan="3" class="empty-summary">אין נתונים להצגה בחודש זה</td>`;
       this.monthlySummaryBody.appendChild(tr);
       return;
     }
@@ -449,7 +466,7 @@ export class ReportsView {
       this.monthlyGoalBox.hidden = false;
       this.monthlyGoalBox.innerHTML = `
         <div class="goal-box">
-          <div class="goal-title">יעד חודשי (עד היום)</div>
+          <div class="goal-title">יעד חודשי (${goalProgress.periodLabel || "עד היום"})</div>
           <div class="goal-metrics">
             <span><strong>${goalProgress.actualHoursStr}</strong> בפועל</span>
             <span>מתוך <strong>${goalProgress.expectedHoursStr}</strong> צפוי</span>

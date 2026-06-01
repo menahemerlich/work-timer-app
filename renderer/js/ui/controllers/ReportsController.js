@@ -2,7 +2,9 @@ import { WorkLog } from "../../core/models/WorkLog.js";
 import { UNKNOWN_EMPLOYER } from "../../../../shared/constants/storageKeys.js";
 import {
   formatDateInputValue,
-  formatHebrewDateFromInput
+  formatHebrewDateFromInput,
+  parseHebrewDate,
+  getHebrewMonthLabel
 } from "../../core/utils/dateParse.js";
 import { formatDuration } from "../../core/utils/timeFormat.js";
 import { generateId } from "../../core/utils/uuid.js";
@@ -33,6 +35,7 @@ export class ReportsController {
     this.jsonBackupService = jsonBackupService;
     this.expandedDays = new Set();
     this.expandedMonths = new Set();
+    this.selectedMonthKey = null;
   }
 
   init() {
@@ -65,6 +68,10 @@ export class ReportsController {
     });
     this.view.monthlySummaryClearAll?.addEventListener("click", () => {
       this.view.setAllEmployerChipsChecked(this.view.monthlySummaryEmployerChips, false);
+      this.refresh();
+    });
+    this.view.monthlySummaryMonth?.addEventListener("change", () => {
+      this.selectedMonthKey = this.view.getSelectedMonthKey();
       this.refresh();
     });
     this.view.dateFrom.addEventListener("change", () => this.refresh());
@@ -214,19 +221,68 @@ export class ReportsController {
     const totalMs = this.reportService.getTotalDurationMs(archiveStructure.todayLogs);
     this.view.renderTotal(formatDuration(totalMs));
 
-    const monthLogs = this.reportService.getCurrentMonthLogs(allLogs);
+    const monthOptions = this.buildMonthOptions(allLogs);
+    if (!monthOptions.some((opt) => opt.key === this.selectedMonthKey)) {
+      this.selectedMonthKey = monthOptions[0]?.key ?? null;
+    }
+    this.view.renderMonthOptions(monthOptions, this.selectedMonthKey);
+
+    const referenceDate = this.resolveReferenceDate(this.selectedMonthKey);
+    const monthLogs = this.reportService.getCurrentMonthLogs(allLogs, referenceDate);
     const monthlyFilters = this.getMonthlySummaryFilters();
     monthlyFilters.totalOptions = filterItems.length;
     const filteredMonthLogs = this.applyEmployerFilter(monthLogs, monthlyFilters);
 
-    const goalProgress = this.computeMonthlyGoalProgress(filteredMonthLogs);
+    const goalProgress = this.computeMonthlyGoalProgress(filteredMonthLogs, referenceDate);
 
     this.view.renderMonthlySummary(this.reportService.getSummaryByEmployer(filteredMonthLogs), {
-      hasMonthData: monthLogs.length > 0,
+      hasMonthData: allLogs.length > 0,
       getEmployerColorByName: (name) => this.getEmployerColorByName(name),
       onOpenCalculator: () => this.openMonthlyEarningsModal(filteredMonthLogs),
       goalProgress
     });
+  }
+
+  buildMonthOptions(allLogs) {
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+    const map = new Map();
+
+    map.set(currentKey, { year: now.getFullYear(), month: now.getMonth() + 1 });
+
+    allLogs.forEach((log) => {
+      const parsed = parseHebrewDate(log.date);
+      if (!parsed) {
+        return;
+      }
+      const key = `${parsed.year}-${parsed.month}`;
+      if (!map.has(key)) {
+        map.set(key, { year: parsed.year, month: parsed.month });
+      }
+    });
+
+    return Array.from(map.entries())
+      .map(([key, { year, month }]) => ({
+        key,
+        year,
+        month,
+        label:
+          key === currentKey
+            ? `${getHebrewMonthLabel(month, year, now)} (החודש)`
+            : getHebrewMonthLabel(month, year, now)
+      }))
+      .sort((a, b) => b.year - a.year || b.month - a.month);
+  }
+
+  resolveReferenceDate(monthKey) {
+    if (!monthKey) {
+      return new Date();
+    }
+    const [year, month] = monthKey.split("-").map(Number);
+    if (!year || !month) {
+      return new Date();
+    }
+    return new Date(year, month - 1, 15);
   }
 
   computeMonthlyGoalProgress(monthLogs, referenceDate = new Date()) {
@@ -238,7 +294,19 @@ export class ReportsController {
       return null;
     }
 
-    const daysElapsed = referenceDate.getDate(); // 1..31
+    const now = new Date();
+    const isCurrentMonth =
+      referenceDate.getMonth() === now.getMonth() &&
+      referenceDate.getFullYear() === now.getFullYear();
+    const daysInMonth = new Date(
+      referenceDate.getFullYear(),
+      referenceDate.getMonth() + 1,
+      0
+    ).getDate();
+
+    // For the current month count days passed so far; for past months the
+    // whole month is over, so compare against the full target.
+    const daysElapsed = isCurrentMonth ? now.getDate() : daysInMonth;
     const expectedWorkDaysSoFar = Math.min(daysElapsed, targetDays);
     const expectedHours = expectedWorkDaysSoFar * hoursPerDay;
     const actualHours = this.reportService.getTotalDurationMs(monthLogs) / 3600000;
@@ -255,6 +323,8 @@ export class ReportsController {
       expectedHours,
       actualHours,
       percent,
+      isCurrentMonth,
+      periodLabel: isCurrentMonth ? "עד היום" : "החודש כולו",
       expectedHoursStr: `${fmt(expectedHours)} שעות`,
       actualHoursStr: `${fmt(actualHours)} שעות`,
       percentStr: `${Math.round(percent)}%`
