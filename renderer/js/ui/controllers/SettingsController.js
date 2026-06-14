@@ -32,9 +32,6 @@ export class SettingsController {
       void this.handleHardPullFromCloud();
     });
 
-    this.view.monthlyTargetDaysInput?.addEventListener("change", () => {
-      void this.handleMonthlyTargetsChanged();
-    });
     this.view.monthlyTargetHoursPerDayInput?.addEventListener("change", () => {
       void this.handleMonthlyTargetsChanged();
     });
@@ -62,11 +59,8 @@ export class SettingsController {
   refresh() {
     const settings = this.employerRepo.settingsRepository.getSettings?.()
       ? this.employerRepo.settingsRepository.getSettings()
-      : { monthlyTargetDays: null, monthlyTargetHoursPerDay: null, earningsWindowCorner: null };
+      : { monthlyTargetHoursPerDay: null, earningsWindowCorner: null };
 
-    if (this.view.monthlyTargetDaysInput) {
-      this.view.monthlyTargetDaysInput.value = settings.monthlyTargetDays ?? "";
-    }
     if (this.view.monthlyTargetHoursPerDayInput) {
       this.view.monthlyTargetHoursPerDayInput.value = settings.monthlyTargetHoursPerDay ?? "";
     }
@@ -202,16 +196,10 @@ export class SettingsController {
   }
 
   async handleMonthlyTargetsChanged() {
-    const daysRaw = this.view.monthlyTargetDaysInput?.value ?? "";
     const hoursRaw = this.view.monthlyTargetHoursPerDayInput?.value ?? "";
 
-    const days = daysRaw === "" ? null : Number(daysRaw);
     const hours = hoursRaw === "" ? null : Number(hoursRaw);
 
-    if (days !== null && (!Number.isFinite(days) || days < 0)) {
-      this.view.showFeedback("ימי יעד חייב להיות מספר חיובי.", "error");
-      return;
-    }
     if (hours !== null && (!Number.isFinite(hours) || hours < 0)) {
       this.view.showFeedback("שעות יעד ליום חייב להיות מספר חיובי.", "error");
       return;
@@ -219,7 +207,7 @@ export class SettingsController {
 
     try {
       await this.employerRepo.settingsRepository.saveMonthlyTargets({
-        monthlyTargetDays: days,
+        monthlyTargetDays: null,
         monthlyTargetHoursPerDay: hours
       });
       this.view.showFeedback("היעד החודשי עודכן.");

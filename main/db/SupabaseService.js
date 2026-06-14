@@ -65,10 +65,31 @@ class SupabaseService {
     return this.session;
   }
 
-  async signIn(email, password) {
+  async resolveEmailByUsername(client, username) {
+    const { data, error } = await client.rpc("email_for_username", {
+      p_username: username
+    });
+    if (error) {
+      throw new Error(
+        "התחברות עם שם משתמש אינה זמינה כרגע — התחבר עם כתובת האימייל, או הגדר את הפונקציה בענן."
+      );
+    }
+    if (!data) {
+      throw new Error("שם המשתמש או הסיסמה שגויים.");
+    }
+    return data;
+  }
+
+  async signIn(identifier, password) {
     const client = this.getClient();
     if (!client) {
       throw new Error("Supabase לא מוגדר — הוסף SUPABASE_URL ו-SUPABASE_ANON_KEY ל-.env");
+    }
+
+    let email = String(identifier || "").trim();
+    // Allow logging in with a username instead of an email address.
+    if (email && !email.includes("@")) {
+      email = await this.resolveEmailByUsername(client, email);
     }
 
     const { data, error } = await client.auth.signInWithPassword({ email, password });

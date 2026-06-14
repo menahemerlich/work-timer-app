@@ -28,6 +28,7 @@ export class AuthController {
     if (session) {
       this.authStatus.textContent = session.displayName || session.username || session.email;
       this.authBtn.textContent = "התנתק";
+      this.rememberUser(session);
     } else {
       this.authStatus.textContent = "לא מחובר";
       this.authBtn.textContent = "התחבר";
@@ -74,19 +75,22 @@ export class AuthController {
             ? `
           <label class="field-label" for="authUsername">שם משתמש</label>
           <input id="authUsername" type="text" class="field-input" autocomplete="nickname" maxlength="32" />
+          <label class="field-label" for="authEmail">אימייל</label>
+          <input id="authEmail" type="email" class="field-input" autocomplete="username" />
         `
-            : ""
+            : `
+          <label class="field-label" for="authIdentifier">אימייל או שם משתמש</label>
+          <input id="authIdentifier" type="text" class="field-input" autocomplete="username" />
+        `
         }
-        <label class="field-label" for="authEmail">אימייל</label>
-        <input id="authEmail" type="email" class="field-input" autocomplete="username" />
         <label class="field-label" for="authPassword">סיסמה</label>
         <input id="authPassword" type="password" class="field-input" autocomplete="${
           isSignUp ? "new-password" : "current-password"
         }" />
         <p class="modal-hint">${
           isSignUp
-            ? "שם המשתמש יוצג באפליקציה. האימייל משמש רק להתחברות."
-            : "האפליקציה עובדת גם offline. הסנכרון לענן דורש התחברות."
+            ? "שם המשתמש יוצג באפליקציה וניתן להשתמש בו גם להתחברות."
+            : "אפשר להתחבר עם כתובת האימייל או עם שם המשתמש."
         }</p>
         <div class="auth-modal-actions">
           <button type="button" id="authToggleModeBtn" class="btn-soft">${
@@ -116,21 +120,34 @@ export class AuthController {
   }
 
   getCredentials() {
-    const email = document.getElementById("authEmail")?.value?.trim();
+    const identifier = document.getElementById("authIdentifier")?.value?.trim() || "";
+    const email = document.getElementById("authEmail")?.value?.trim() || "";
     const password = document.getElementById("authPassword")?.value || "";
     const username = document.getElementById("authUsername")?.value?.trim() || "";
-    return { email, password, username };
+    return { identifier, email, password, username };
   }
 
   async handleSignIn() {
-    const { email, password } = this.getCredentials();
-    if (!email || !password) {
-      this.modal.showFeedback("יש למלא אימייל וסיסמה.");
+    const { identifier, password } = this.getCredentials();
+    if (!identifier || !password) {
+      this.modal.showFeedback("יש למלא אימייל או שם משתמש וסיסמה.");
       return;
     }
 
+    // If a username was entered, try resolving it locally to the email used on
+    // this device. This lets the user log in with just a username without any
+    // cloud setup, once they've signed in (or up) here at least once.
+    let loginId = identifier;
+    if (!identifier.includes("@")) {
+      const cachedEmail = this.lookupEmailByUsername(identifier);
+      if (cachedEmail) {
+        loginId = cachedEmail;
+      }
+    }
+
     try {
-      await window.electronAPI.auth.signIn(email, password);
+      const user = await window.electronAPI.auth.signIn(loginId, password);
+      this.rememberUser(user);
       this.modal.hide();
       this.refresh();
     } catch (error) {
@@ -151,6 +168,7 @@ export class AuthController {
 
     try {
       const result = await window.electronAPI.auth.signUp(email, password, username);
+      this.rememberUser({ email, username });
       if (result.needsConfirmation) {
         this.modal.showFeedback("נרשמת בהצלחה — בדוק אימייל לאישור.", "success");
         return;
@@ -160,5 +178,32 @@ export class AuthController {
     } catch (error) {
       this.modal.showFeedback(error.message || "שגיאה בהרשמה.");
     }
+  }
+
+  loadUsernameMap() {
+    try {
+      return JSON.parse(localStorage.getItem("auth_username_map") || "{}") || {};
+    } catch {
+      return {};
+    }
+  }
+
+  rememberUser(user) {
+    const username = user?.username?.trim();
+    const email = user?.email?.trim();
+    if (!username || !email) {
+      return;
+    }
+    const map = this.loadUsernameMap();
+    map[username.toLowerCase()] = email;
+    try {
+      localStorage.setItem("auth_username_map", JSON.stringify(map));
+    } catch {
+      // ignore storage failures
+    }
+  }
+
+  lookupEmailByUsername(username) {
+    return this.loadUsernameMap()[username.trim().toLowerCase()] || null;
   }
 }

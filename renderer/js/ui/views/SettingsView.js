@@ -6,7 +6,6 @@ export class SettingsView {
     this.feedbackEl = document.getElementById("settingsFeedback");
     this.settingsPanel = document.getElementById("settingsPanel");
     this.hardPullBtn = document.getElementById("hardPullBtn");
-    this.monthlyTargetDaysInput = document.getElementById("monthlyTargetDays");
     this.monthlyTargetHoursPerDayInput = document.getElementById("monthlyTargetHoursPerDay");
     this.earningsWindowCornerSelect = document.getElementById("earningsWindowCorner");
     this.openEarningsBtn = document.getElementById("openEarningsBtn");

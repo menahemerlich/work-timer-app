@@ -35,6 +35,9 @@ export class TabNav {
       const isActive = panel.dataset.panel === tabId;
       panel.classList.toggle("active", isActive);
       panel.toggleAttribute("inert", !isActive);
+      if (isActive) {
+        panel.scrollTop = 0;
+      }
     });
 
     blurHiddenPanelFields();

@@ -17,8 +17,8 @@ function scheduleBackgroundSync({ supabase, syncEngine, localDb }) {
 }
 
 function registerAuthHandlers({ supabase, syncEngine, localDb }) {
-  ipcMain.handle("auth:signIn", async (_event, email, password) => {
-    await supabase.signIn(email, password);
+  ipcMain.handle("auth:signIn", async (_event, identifier, password) => {
+    await supabase.signIn(identifier, password);
     scheduleBackgroundSync({ supabase, syncEngine, localDb });
     return mapUser(supabase);
   });

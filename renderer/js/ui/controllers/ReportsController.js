@@ -287,28 +287,31 @@ export class ReportsController {
 
   computeMonthlyGoalProgress(monthLogs, referenceDate = new Date()) {
     const settings = this.employerRepo.settingsRepository.getSettings();
-    const targetDays = settings.monthlyTargetDays ?? null;
     const hoursPerDay = settings.monthlyTargetHoursPerDay ?? null;
 
-    if (!targetDays || !hoursPerDay || targetDays <= 0 || hoursPerDay <= 0) {
+    if (!hoursPerDay || hoursPerDay <= 0) {
       return null;
     }
 
     const now = new Date();
-    const isCurrentMonth =
-      referenceDate.getMonth() === now.getMonth() &&
-      referenceDate.getFullYear() === now.getFullYear();
-    const daysInMonth = new Date(
-      referenceDate.getFullYear(),
-      referenceDate.getMonth() + 1,
-      0
-    ).getDate();
+    const year = referenceDate.getFullYear();
+    const month = referenceDate.getMonth();
+    const isCurrentMonth = month === now.getMonth() && year === now.getFullYear();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    // For the current month count days passed so far; for past months the
-    // whole month is over, so compare against the full target.
-    const daysElapsed = isCurrentMonth ? now.getDate() : daysInMonth;
-    const expectedWorkDaysSoFar = Math.min(daysElapsed, targetDays);
-    const expectedHours = expectedWorkDaysSoFar * hoursPerDay;
+    // For the current month count only up to today; past months are counted in full.
+    const lastDay = isCurrentMonth ? now.getDate() : daysInMonth;
+
+    // The monthly target is derived only from working days (Sunday–Thursday).
+    let expectedWorkDays = 0;
+    for (let day = 1; day <= lastDay; day += 1) {
+      const dayOfWeek = new Date(year, month, day).getDay();
+      if (dayOfWeek >= 0 && dayOfWeek <= 4) {
+        expectedWorkDays += 1;
+      }
+    }
+
+    const expectedHours = expectedWorkDays * hoursPerDay;
     const actualHours = this.reportService.getTotalDurationMs(monthLogs) / 3600000;
 
     const percent = expectedHours > 0 ? (actualHours / expectedHours) * 100 : 0;
@@ -316,10 +319,8 @@ export class ReportsController {
       Number(n || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     return {
-      targetDays,
       hoursPerDay,
-      daysElapsed,
-      expectedWorkDaysSoFar,
+      expectedWorkDays,
       expectedHours,
       actualHours,
       percent,
