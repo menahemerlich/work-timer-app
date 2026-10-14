@@ -232,6 +232,43 @@ class SupabaseService {
     }
   }
 
+  async pushProject(userId, project, operation) {
+    const client = this.getClient();
+    if (!client || !userId) {
+      throw new Error("אין חיבור לענן — התחבר מחדש");
+    }
+
+    if (operation === "delete") {
+      const { error } = await client
+        .from("projects")
+        .update({ deleted_at: project.deletedAt || new Date().toISOString() })
+        .eq("id", project.id)
+        .eq("user_id", userId);
+      if (error) {
+        throw error;
+      }
+      return;
+    }
+
+    const { error } = await client.from("projects").upsert({
+      id: project.id,
+      user_id: userId,
+      employer_id: project.employerId,
+      name: project.name,
+      billing_type: ["fixed", "unit"].includes(project.billingType) ? project.billingType : "hourly",
+      fixed_price: project.fixedPrice ?? null,
+      unit_price: project.unitPrice ?? null,
+      unit_name: project.unitName || null,
+      unit_singular: project.unitSingular || null,
+      created_at: project.createdAt,
+      updated_at: project.updatedAt || new Date().toISOString(),
+      deleted_at: null
+    });
+    if (error) {
+      throw error;
+    }
+  }
+
   async pushWorkLog(userId, log, operation) {
     const client = this.getClient();
     if (!client || !userId) {
@@ -250,7 +287,7 @@ class SupabaseService {
       return;
     }
 
-    const { error } = await client.from("work_logs").upsert({
+    const row = {
       id: log.id,
       user_id: userId,
       date: log.date,
@@ -263,7 +300,17 @@ class SupabaseService {
       note: log.note || "",
       updated_at: log.updatedAt || new Date().toISOString(),
       deleted_at: null
-    });
+    };
+    // Project columns are sent only when set, so logs without a project keep
+    // syncing even before supabase/002_projects.sql was applied to the cloud.
+    if (log.projectId) {
+      row.project_id = log.projectId;
+      row.project_name = log.projectName || null;
+      row.unit_count = log.unitCount ?? null;
+      row.unit_open = Boolean(log.unitOpen);
+    }
+
+    const { error } = await client.from("work_logs").upsert(row);
     if (error) {
       throw error;
     }
@@ -300,7 +347,7 @@ class SupabaseService {
       return;
     }
 
-    const { error } = await client.from("timer_state").upsert({
+    const row = {
       user_id: userId,
       elapsed_ms: state.elapsedMs || 0,
       is_paused: !!state.isPaused,
@@ -311,7 +358,14 @@ class SupabaseService {
       segment_start_time: state.segmentStartTime || null,
       session_note: state.sessionNote || "",
       updated_at: state.updatedAt || new Date().toISOString()
-    });
+    };
+    if (state.projectId) {
+      row.project_id = state.projectId;
+      row.project_name = state.projectName || null;
+      row.unit_count = state.unitCount ?? null;
+    }
+
+    const { error } = await client.from("timer_state").upsert(row);
     if (error) {
       throw error;
     }
@@ -320,13 +374,14 @@ class SupabaseService {
   async pullChanges(userId, since) {
     const client = this.getClient();
     if (!client || !userId) {
-      return { employers: [], workLogs: [], appSettings: [], timerState: null };
+      return { employers: [], projects: [], workLogs: [], appSettings: [], timerState: null };
     }
 
     const sinceFilter = since || "1970-01-01T00:00:00.000Z";
 
-    const [employersRes, logsRes, settingsRes, timerRes] = await Promise.all([
+    const [employersRes, projectsRes, logsRes, settingsRes, timerRes] = await Promise.all([
       client.from("employers").select("*").eq("user_id", userId).gt("updated_at", sinceFilter),
+      client.from("projects").select("*").eq("user_id", userId).gt("updated_at", sinceFilter),
       client.from("work_logs").select("*").eq("user_id", userId).gt("updated_at", sinceFilter),
       client.from("app_settings").select("*").eq("user_id", userId).gt("updated_at", sinceFilter),
       client.from("timer_state").select("*").eq("user_id", userId).maybeSingle()
@@ -338,8 +393,15 @@ class SupabaseService {
       }
     }
 
+    // The projects table may not exist yet in the cloud (002_projects.sql not applied);
+    // don't let that block pulling everything else.
+    if (projectsRes.error) {
+      console.warn("Pull projects skipped:", projectsRes.error.message);
+    }
+
     return {
       employers: employersRes.data || [],
+      projects: projectsRes.error ? [] : projectsRes.data || [],
       workLogs: logsRes.data || [],
       appSettings: settingsRes.data || [],
       timerState: timerRes.data || null

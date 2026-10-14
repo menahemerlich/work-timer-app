@@ -31,6 +31,23 @@ function registerDataHandlers({ localDb, syncEngine }) {
     afterWrite();
   });
 
+  // Deleted projects are returned too (flagged with deletedAt) so old logs can still
+  // resolve their project's billing type.
+  ipcMain.handle("db:projects:getAll", () => localDb.getAllProjects(true));
+
+  ipcMain.handle("db:projects:upsert", (_event, project) => {
+    const saved = localDb.upsertProject(project);
+    syncEngine.notifyStatus();
+    afterWrite();
+    return saved;
+  });
+
+  ipcMain.handle("db:projects:delete", (_event, id) => {
+    localDb.deleteProject(id);
+    syncEngine.notifyStatus();
+    afterWrite();
+  });
+
   ipcMain.handle("db:logs:getAll", () => localDb.getAllLogs());
 
   ipcMain.handle("db:logs:upsert", (_event, log) => {

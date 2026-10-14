@@ -29,7 +29,22 @@ export class SettingsView {
     }, 2500);
   }
 
-  renderEmployers(employers, { editingId, onStartEdit, onSaveEdit, onCancelEdit, onDelete, onSetHourlyRate }) {
+  renderEmployers(
+    employers,
+    {
+      editingId,
+      onStartEdit,
+      onSaveEdit,
+      onCancelEdit,
+      onDelete,
+      onSetHourlyRate,
+      getProjects = () => [],
+      getProjectStats = () => null,
+      onAddProject,
+      onUpdateProject,
+      onDeleteProject
+    }
+  ) {
     this.preserveFocusBeforeListUpdate();
     this.employersList.innerHTML = "";
 
@@ -107,6 +122,15 @@ export class SettingsView {
         });
 
         nameBlock.appendChild(rateRow);
+        nameBlock.appendChild(
+          this.createProjectsBlock(employer, {
+            projects: getProjects(employer.id),
+            getProjectStats,
+            onAddProject,
+            onUpdateProject,
+            onDeleteProject
+          })
+        );
       }
 
       const actions = document.createElement("div");
@@ -148,6 +172,213 @@ export class SettingsView {
       item.append(nameBlock, actions);
       this.employersList.appendChild(item);
     });
+  }
+
+  createBillingSelect(value) {
+    const select = document.createElement("select");
+    select.className = "project-billing-select";
+    select.innerHTML = `
+      <option value="hourly">לפי שעה</option>
+      <option value="fixed">לפי עבודה</option>
+      <option value="unit">לפי יחידה</option>
+    `;
+    select.value = ["fixed", "unit"].includes(value) ? value : "hourly";
+    return select;
+  }
+
+  createPriceInput(value, { placeholder = "₪ לעבודה", title = "כמה אתה לוקח על העבודה" } = {}) {
+    const input = document.createElement("input");
+    input.type = "number";
+    input.inputMode = "decimal";
+    input.step = "0.01";
+    input.min = "0";
+    input.className = "project-price-input";
+    input.placeholder = placeholder;
+    input.title = title;
+    input.value = value ?? "";
+    return input;
+  }
+
+  createUnitNameInput(value, { placeholder = "ברבים (תיקים)", title = "שם היחידה ברבים, לדוגמה: תיקים" } = {}) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "project-unit-name-input";
+    input.placeholder = placeholder;
+    input.title = title;
+    input.value = value || "";
+    return input;
+  }
+
+  readPrice(input) {
+    const raw = input.value;
+    if (raw === "") {
+      return null;
+    }
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : NaN;
+  }
+
+  /** Price/unit fields that depend on the billing type; returns { elements, sync, read }. */
+  createBillingFields(project = null) {
+    const fixedPrice = this.createPriceInput(project?.fixedPrice ?? null);
+    const unitSingular = this.createUnitNameInput(project?.unitSingular, {
+      placeholder: "ביחיד (תיק)",
+      title: "שם היחידה ביחיד, לדוגמה: תיק"
+    });
+    const unitName = this.createUnitNameInput(project?.unitName);
+    const unitPrice = this.createPriceInput(project?.unitPrice ?? null, {
+      placeholder: "₪ ליחידה",
+      title: "כמה אתה מקבל על כל יחידה"
+    });
+
+    const sync = (billingType) => {
+      fixedPrice.hidden = billingType !== "fixed";
+      unitName.hidden = billingType !== "unit";
+      unitSingular.hidden = billingType !== "unit";
+      unitPrice.hidden = billingType !== "unit";
+    };
+
+    const read = (billingType) => ({
+      fixedPrice: billingType === "fixed" ? this.readPrice(fixedPrice) : null,
+      unitPrice: billingType === "unit" ? this.readPrice(unitPrice) : null,
+      unitName: billingType === "unit" ? unitName.value.trim() || null : null,
+      unitSingular: billingType === "unit" ? unitSingular.value.trim() || null : null
+    });
+
+    return {
+      fixedPrice,
+      unitName,
+      unitSingular,
+      unitPrice,
+      elements: [fixedPrice, unitSingular, unitName, unitPrice],
+      sync,
+      read
+    };
+  }
+
+  createProjectsBlock(employer, { projects, getProjectStats, onAddProject, onUpdateProject, onDeleteProject }) {
+    this.openProjectBlocks ??= new Set();
+
+    const details = document.createElement("details");
+    details.className = "employer-projects";
+    details.open = this.openProjectBlocks.has(employer.id);
+    details.addEventListener("toggle", () => {
+      if (details.open) {
+        this.openProjectBlocks.add(employer.id);
+      } else {
+        this.openProjectBlocks.delete(employer.id);
+      }
+    });
+
+    const summary = document.createElement("summary");
+    summary.className = "employer-projects-summary";
+    summary.textContent = projects.length ? `📁 פרויקטים (${projects.length})` : "📁 פרויקטים";
+    details.appendChild(summary);
+
+    const list = document.createElement("div");
+    list.className = "project-list";
+
+    if (!projects.length) {
+      const empty = document.createElement("p");
+      empty.className = "project-empty";
+      empty.textContent = "אין פרויקטים — עבודה בלי פרויקט נספרת לפי התעריף לשעה.";
+      list.appendChild(empty);
+    }
+
+    projects.forEach((project) => {
+      const row = document.createElement("div");
+      row.className = `project-row${project.isFixed ? " is-fixed" : ""}${project.isUnit ? " is-unit" : ""}`;
+
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.className = "project-name-input";
+      nameInput.value = project.name;
+      nameInput.addEventListener("change", () => {
+        onUpdateProject?.(project.id, { name: nameInput.value });
+      });
+
+      const billingSelect = this.createBillingSelect(project.billingType);
+      const billing = this.createBillingFields(project);
+      billing.sync(project.billingType);
+
+      billingSelect.addEventListener("change", () => {
+        onUpdateProject?.(project.id, { billingType: billingSelect.value });
+      });
+      billing.fixedPrice.addEventListener("change", () => {
+        onUpdateProject?.(project.id, { fixedPrice: this.readPrice(billing.fixedPrice) });
+      });
+      billing.unitPrice.addEventListener("change", () => {
+        onUpdateProject?.(project.id, { unitPrice: this.readPrice(billing.unitPrice) });
+      });
+      billing.unitName.addEventListener("change", () => {
+        onUpdateProject?.(project.id, { unitName: billing.unitName.value.trim() || null });
+      });
+      billing.unitSingular.addEventListener("change", () => {
+        onUpdateProject?.(project.id, { unitSingular: billing.unitSingular.value.trim() || null });
+      });
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "btn-small btn-delete-employer project-delete-btn";
+      deleteBtn.textContent = "מחק";
+      deleteBtn.addEventListener("click", () => onDeleteProject?.(project.id));
+
+      const fields = document.createElement("div");
+      fields.className = "project-fields";
+      fields.append(nameInput, billingSelect, ...billing.elements, deleteBtn);
+      row.appendChild(fields);
+
+      const stats = getProjectStats(project);
+      if (stats) {
+        const statsEl = document.createElement("div");
+        statsEl.className = "project-stats";
+        statsEl.textContent = stats;
+        row.appendChild(statsEl);
+      }
+
+      list.appendChild(row);
+    });
+
+    details.appendChild(list);
+
+    const addRow = document.createElement("div");
+    addRow.className = "project-fields project-add-row";
+
+    const newName = document.createElement("input");
+    newName.type = "text";
+    newName.className = "project-name-input";
+    newName.placeholder = "שם פרויקט חדש…";
+    newName.autocomplete = "off";
+
+    const newBilling = this.createBillingSelect("hourly");
+    const newBillingFields = this.createBillingFields();
+    newBillingFields.sync("hourly");
+    newBilling.addEventListener("change", () => newBillingFields.sync(newBilling.value));
+
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "btn-small btn-save-employer";
+    addBtn.textContent = "+ הוסף";
+
+    const submit = () => {
+      onAddProject?.(employer.id, {
+        name: newName.value,
+        billingType: newBilling.value,
+        ...newBillingFields.read(newBilling.value)
+      });
+    };
+    addBtn.addEventListener("click", submit);
+    newName.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        submit();
+      }
+    });
+
+    addRow.append(newName, newBilling, ...newBillingFields.elements, addBtn);
+    details.appendChild(addRow);
+
+    return details;
   }
 
   clearInput() {

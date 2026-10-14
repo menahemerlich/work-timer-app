@@ -72,6 +72,8 @@
                   <div class="employer-chip-text">
                     <span class="employer-chip-label">מעסיק</span>
                     <span class="employer-chip-name" id="employerName"></span>
+                    <span class="employer-chip-project" id="employerProject" hidden></span>
+                    <span class="employer-chip-fixed" id="employerProjectFixed" hidden>לפי עבודה</span>
                   </div>
                 </div>
               </aside>
@@ -83,10 +85,24 @@
                   <div class="time-hint" id="timerHint">מוכן להתחלה</div>
                 </div>
               </div>
-              <button type="button" class="session-note-btn" id="sessionNoteBtn" hidden aria-label="הוסף הערה">
-                <span class="session-note-icon">!</span>
-                <span class="session-note-label">הערה</span>
-              </button>
+              <div class="timer-side-actions">
+                <button type="button" class="session-note-btn" id="sessionNoteBtn" hidden aria-label="הוסף הערה">
+                  <span class="session-note-icon">!</span>
+                  <span class="session-note-label">הערה</span>
+                </button>
+                <div class="unit-counter" id="unitCounter" hidden>
+                  <div class="unit-counter-caption">עובד על</div>
+                  <div class="unit-counter-current">
+                    <span class="unit-counter-label" id="unitCountLabel">יחידה</span>
+                    <span class="unit-counter-value" id="unitCountValue">1</span>
+                  </div>
+                  <button type="button" class="unit-done-btn" id="unitPlusBtn">✓ סיימתי</button>
+                  <div class="unit-counter-sub">
+                    <span id="unitDoneCount">0</span> הסתיימו
+                    <button type="button" class="unit-undo-btn" id="unitMinusBtn" title="בטל את הסימון האחרון">↶</button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="info-row">

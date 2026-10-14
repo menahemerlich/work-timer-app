@@ -728,3 +728,93 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+
+.log-project-tag {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6d28d9;
+}
+
+.log-project-tag.is-fixed {
+  color: #9a3412;
+}
+
+.calc-section-title {
+  margin-top: 16px;
+}
+
+.calc-sub {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.calc-totals {
+  margin: 4px 0 8px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f5f3ff, #fdf2f8);
+  border: 2px solid #ede9fe;
+}
+
+.calc-total-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.calc-total-grand {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 2px dashed #ddd6fe;
+  font-size: 16px;
+  font-weight: 700;
+  color: #6d28d9;
+}
+
+.log-project-tag.is-unit {
+  color: #047857;
+}
+
+.calc-group {
+  border-bottom: 1px solid #ede9fe;
+}
+
+.calc-group > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 0;
+  user-select: none;
+}
+
+.calc-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.calc-group-label::before {
+  content: "◂";
+  display: inline-block;
+  margin-left: 6px;
+  color: #a78bfa;
+  transition: transform 0.15s ease;
+}
+
+.calc-group[open] .calc-group-label::before {
+  transform: rotate(-90deg);
+}
+
+.calc-group > summary:hover {
+  color: #6d28d9;
+}
+
+.calc-group-body {
+  padding: 4px 0 10px;
+}
+
+.calc-group-body .table-wrap {
+  background: white;
+  border-radius: 12px;
+}

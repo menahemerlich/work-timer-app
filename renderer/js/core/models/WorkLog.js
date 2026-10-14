@@ -12,6 +12,10 @@ export class WorkLog {
     durationStr,
     employerId = null,
     employerName = UNKNOWN_EMPLOYER,
+    projectId = null,
+    projectName = null,
+    unitCount = null,
+    unitOpen = false,
     note = ""
   }) {
     this.id = id;
@@ -22,10 +26,25 @@ export class WorkLog {
     this.durationStr = durationStr;
     this.employerId = employerId;
     this.employerName = employerName;
+    this.projectId = projectId || null;
+    this.projectName = projectId ? projectName || null : null;
+    this.unitCount = projectId && unitCount !== null && unitCount !== undefined ? unitCount : null;
+    this.unitOpen = Boolean(projectId && unitOpen);
     this.note = note || "";
   }
 
-  static fromSession({ originalStartTime, endTime, durationMs, employerId, employerName, note = "" }) {
+  static fromSession({
+    originalStartTime,
+    endTime,
+    durationMs,
+    employerId,
+    employerName,
+    projectId = null,
+    projectName = null,
+    unitCount = null,
+    unitOpen = false,
+    note = ""
+  }) {
     return new WorkLog({
       id: generateId(),
       date: originalStartTime.toLocaleDateString("he-IL"),
@@ -35,6 +54,10 @@ export class WorkLog {
       durationStr: formatDuration(durationMs),
       employerId,
       employerName,
+      projectId,
+      projectName,
+      unitCount,
+      unitOpen,
       note: note || ""
     });
   }
@@ -49,6 +72,10 @@ export class WorkLog {
       durationStr: this.durationStr,
       employerId: this.employerId,
       employerName: this.employerName,
+      projectId: this.projectId,
+      projectName: this.projectName,
+      unitCount: this.unitCount,
+      unitOpen: this.unitOpen,
       note: this.note || ""
     };
   }

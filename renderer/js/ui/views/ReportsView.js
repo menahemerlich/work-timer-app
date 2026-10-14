@@ -1,5 +1,13 @@
 import { getColorForOrphanName } from "../../core/utils/employerColors.js";
 
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export class ReportsView {
   constructor() {
     this.openFiltersBtn = document.getElementById("openFiltersBtn");
@@ -148,7 +156,7 @@ export class ReportsView {
     });
   }
 
-  appendLogRows(tbody, logs, { onEdit, onDelete, onShowNote, getEmployerColor }) {
+  appendLogRows(tbody, logs, { onEdit, onDelete, onShowNote, getEmployerColor, getProjectInfo }) {
     logs.forEach((log) => {
       const row = document.createElement("tr");
       const color = getEmployerColor?.(log);
@@ -160,12 +168,23 @@ export class ReportsView {
         ? `<button type="button" class="note-indicator" title="הצג הערה" aria-label="הצג הערה">!</button>`
         : `<span class="note-empty">—</span>`;
 
+      const project = getProjectInfo?.(log);
+      let projectSuffix = "";
+      if (project?.isFixed) {
+        projectSuffix = " · לפי עבודה";
+      } else if (project?.isUnit) {
+        projectSuffix = ` · ${log.unitCount ?? 0} ${escapeHtml(project.unitName || "")}`;
+      }
+      const projectTag = project
+        ? `<span class="log-project-tag${project.isFixed ? " is-fixed" : ""}${project.isUnit ? " is-unit" : ""}" title="${project.isFixed ? "לפי עבודה — לא נספר בשכר לפי שעה" : project.isUnit ? "לפי יחידה — לא נספר בשכר לפי שעה" : "פרויקט"}">📁 ${escapeHtml(project.name)}${projectSuffix}</span>`
+        : "";
+
       row.innerHTML = `
         <td>${log.date}</td>
         <td>${log.start}</td>
         <td>${log.end}</td>
         <td>${log.durationStr}</td>
-        <td>${log.employerName || ""}</td>
+        <td>${log.employerName || ""}${projectTag}</td>
         <td class="note-cell">${noteCell}</td>
         <td class="actions-cell">
           <button type="button" class="btn-small btn-edit" data-id="${log.id}">עריכה</button>

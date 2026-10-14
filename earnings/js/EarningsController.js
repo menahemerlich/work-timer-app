@@ -1,5 +1,9 @@
 import { isInCurrentMonth } from "../../renderer/js/core/utils/dateParse.js";
 import { UNKNOWN_EMPLOYER, TIMER_COMMANDS } from "../../shared/constants/storageKeys.js";
+import {
+  getFixedProjectsIncomeForMonth,
+  sumUnitIncome
+} from "../../renderer/js/core/utils/projectBilling.js";
 
 function getLiveElapsedMs(state) {
   if (!state) {
@@ -23,10 +27,20 @@ function buildRateMap(employers) {
   return map;
 }
 
-function accumulateMonthHours(logs) {
+// Fixed-price and per-unit projects are not paid by the hour.
+function buildNonHourlyProjectIds(projects) {
+  return new Set(
+    (projects || [])
+      .filter((project) => project?.billingType === "fixed" || project?.billingType === "unit")
+      .map((project) => project.id)
+  );
+}
+
+function accumulateMonthHours(logs, fixedProjectIds) {
   const byEmployer = new Map();
   logs.forEach((log) => {
-    if (!isInCurrentMonth(log.date)) {
+    // Fixed-price project time is tracked but not paid by the hour.
+    if (!isInCurrentMonth(log.date) || fixedProjectIds.has(log.projectId)) {
       return;
     }
     const key = log.employerName || UNKNOWN_EMPLOYER;
@@ -35,13 +49,15 @@ function accumulateMonthHours(logs) {
   return byEmployer;
 }
 
-function computeEarnings({ logs, employers, timerState }) {
+function computeEarnings({ logs, employers, projects, timerState }) {
   const rates = buildRateMap(employers);
-  const msByEmployer = accumulateMonthHours(logs);
+  const fixedProjectIds = buildNonHourlyProjectIds(projects);
+  const msByEmployer = accumulateMonthHours(logs, fixedProjectIds);
 
   const liveMs = getLiveElapsedMs(timerState);
   const isRunning = Boolean(timerState?.isRunning);
-  if (isRunning && liveMs > 0) {
+  const isLiveFixed = fixedProjectIds.has(timerState?.projectId);
+  if (isRunning && liveMs > 0 && !isLiveFixed) {
     const key = timerState.employerName || UNKNOWN_EMPLOYER;
     msByEmployer.set(key, (msByEmployer.get(key) || 0) + liveMs);
   }
@@ -56,7 +72,27 @@ function computeEarnings({ logs, employers, timerState }) {
     }
   });
 
-  return { total, hasAnyRate, isRunning };
+  // Fixed-price projects add their price in the month they were created.
+  const activeEmployerIds = new Set((employers || []).map((employer) => employer.id));
+  const incomeProjects = getFixedProjectsIncomeForMonth(projects, new Date(), activeEmployerIds);
+  incomeProjects.forEach((project) => {
+    total += project.fixedPrice;
+  });
+
+  // Per-unit projects: units of this month's logs plus the running session.
+  const projectsById = new Map((projects || []).map((project) => [project.id, project]));
+  const unitLogs = logs.filter((log) => isInCurrentMonth(log.date));
+  if (isRunning && timerState?.projectId && timerState.unitCount) {
+    unitLogs.push({ projectId: timerState.projectId, unitCount: timerState.unitCount });
+  }
+  const unitIncome = sumUnitIncome(unitLogs, projectsById);
+  total += unitIncome;
+
+  if (incomeProjects.length || unitIncome > 0) {
+    hasAnyRate = true;
+  }
+
+  return { total, hasAnyRate, isRunning, isLiveFixed };
 }
 
 function formatMoney(n) {
@@ -83,16 +119,22 @@ async function update() {
     return;
   }
 
-  const [logs, employers, timerState, settings] = await Promise.all([
+  const [logs, employers, projects, timerState, settings] = await Promise.all([
     db.logs.getAll(),
     db.employers.getAll(),
+    db.projects?.getAll() ?? [],
     db.timer.load(),
     db.settings.get()
   ]);
 
   applyCornerIfChanged(settings?.earningsWindowCorner);
 
-  const { total, hasAnyRate, isRunning } = computeEarnings({ logs, employers, timerState });
+  const { total, hasAnyRate, isRunning, isLiveFixed } = computeEarnings({
+    logs,
+    employers,
+    projects,
+    timerState
+  });
 
   const amountEl = document.getElementById("earnAmount");
   const subEl = document.getElementById("earnSub");
@@ -106,7 +148,10 @@ async function update() {
 
   amountEl.textContent = formatMoney(total);
 
-  if (isRunning) {
+  if (isRunning && isLiveFixed) {
+    subEl.classList.remove("live");
+    subEl.textContent = "פרויקט לפי עבודה";
+  } else if (isRunning) {
     subEl.classList.add("live");
     subEl.textContent = "מתעדכן עכשיו";
   } else {

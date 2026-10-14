@@ -687,3 +687,147 @@
     flex-direction: column;
   }
 }
+
+.employer-chip-project {
+  font-size: 10px;
+  font-weight: 600;
+  color: #7c3aed;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.employer-chip-fixed {
+  font-size: 9px;
+  font-weight: 700;
+  color: #9a3412;
+  background: #ffedd5;
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.employer-chip-project[hidden],
+.employer-chip-fixed[hidden] {
+  display: none;
+}
+
+/* Note button + per-unit counter share the right side of the timer hero. */
+.timer-side-actions {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timer-side-actions .session-note-btn,
+.timer-side-actions .session-note-btn:hover:not(:disabled) {
+  position: static;
+  transform: none;
+}
+
+.unit-counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 9px;
+  min-width: 92px;
+  border-radius: 18px;
+  border: 2px solid white;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.95), rgba(220, 252, 231, 0.92));
+  box-shadow: 0 6px 18px rgba(52, 211, 153, 0.2);
+}
+
+.unit-counter[hidden],
+.timer-stage[data-state="idle"] .unit-counter {
+  display: none;
+}
+
+.unit-counter-caption {
+  font-size: 9px;
+  font-weight: 700;
+  color: #059669;
+}
+
+.unit-counter-current {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 110px;
+}
+
+.unit-counter-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #047857;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unit-counter-value {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: #047857;
+  font-variant-numeric: tabular-nums;
+}
+
+.unit-done-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  color: white;
+  cursor: pointer;
+  background: linear-gradient(135deg, #34d399, #10b981);
+  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.35);
+  transition: transform 0.12s ease;
+}
+
+.unit-done-btn:active {
+  transform: scale(0.94);
+}
+
+.unit-counter-sub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #059669;
+}
+
+.unit-undo-btn {
+  border: none;
+  background: #d1fae5;
+  color: #047857;
+  border-radius: 6px;
+  width: 20px;
+  height: 18px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.unit-undo-btn[hidden] {
+  display: none;
+}
+
+.unit-counter.is-bumped .unit-counter-value {
+  animation: unitBump 0.25s ease;
+}
+
+@keyframes unitBump {
+  50% { transform: scale(1.25); }
+}

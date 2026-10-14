@@ -1,6 +1,7 @@
 import { LogRepository } from "./data/repositories/LogRepository.js";
 import { EmployerRepository, SettingsRepository } from "./data/repositories/EmployerRepository.js";
 import { TimerStateRepository } from "./data/repositories/TimerStateRepository.js";
+import { ProjectRepository } from "./data/repositories/ProjectRepository.js";
 import { DataMigrator } from "./data/migration/DataMigrator.js";
 import { TimerService } from "./core/services/TimerService.js";
 import { ReportSummaryService } from "./core/services/ReportSummaryService.js";
@@ -24,6 +25,7 @@ import { SyncStatusController } from "./ui/controllers/SyncStatusController.js";
 const settingsRepo = new SettingsRepository();
 const employerRepo = new EmployerRepository(settingsRepo);
 const logRepo = new LogRepository();
+const projectRepo = new ProjectRepository();
 const timerStateRepo = new TimerStateRepository();
 
 let timerService = null;
@@ -32,6 +34,7 @@ let reportsController = null;
 async function bootstrapRepositories() {
   await logRepo.init();
   await employerRepo.init();
+  await projectRepo.init();
   await timerStateRepo.init();
   await DataMigrator.run({ logRepo, settingsRepo });
 }
@@ -50,7 +53,7 @@ async function startApp() {
   const validationService = new LogValidationService();
   const csvExporter = new CsvExporter();
   const csvImporter = new CsvImporter({ logRepo });
-  const jsonBackupService = new JsonBackupService({ logRepo, settingsRepo });
+  const jsonBackupService = new JsonBackupService({ logRepo, settingsRepo, projectRepo });
 
   const tabNav = new TabNav();
   const modal = new Modal("appModal");
@@ -64,6 +67,7 @@ async function startApp() {
     modal,
     logRepo,
     employerRepo,
+    projectRepo,
     reportService,
     validationService,
     csvExporter,
@@ -74,7 +78,9 @@ async function startApp() {
   const settingsController = new SettingsController({
     view: settingsView,
     employerRepo,
-  modal,
+    projectRepo,
+    logRepo,
+    modal,
     onEmployersChanged: () => reportsController.refresh()
   });
 
@@ -83,6 +89,7 @@ async function startApp() {
     modal,
     timerService,
     employerRepo,
+    projectRepo,
     logRepo,
     reportService,
     onLogAdded: () => reportsController.refresh(),

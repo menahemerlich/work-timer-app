@@ -11,7 +11,11 @@ const { registerMiniWindowHandlers } = require("./ipc/miniWindowHandlers");
 const { registerWindowHandlers } = require("./ipc/windowHandlers");
 const { initDataLayer, startDataServices, stopDataServices, getLocalDb } = require("./bootstrap/dataBootstrap");
 
-app.setPath("userData", path.join(app.getPath("appData"), "WorkTimer"));
+// WORKTIMER_USER_DATA runs the app on a separate data folder (for testing without touching real data).
+app.setPath(
+  "userData",
+  process.env.WORKTIMER_USER_DATA || path.join(app.getPath("appData"), "WorkTimer")
+);
 app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
 app.commandLine.appendSwitch("disk-cache-size", "0");
 

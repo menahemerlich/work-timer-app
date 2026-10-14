@@ -2,9 +2,10 @@ import { WorkLog } from "../core/models/WorkLog.js";
 import { Employer } from "../core/models/Employer.js";
 
 export class JsonBackupService {
-  constructor({ logRepo, settingsRepo }) {
+  constructor({ logRepo, settingsRepo, projectRepo }) {
     this.logRepo = logRepo;
     this.settingsRepo = settingsRepo;
+    this.projectRepo = projectRepo;
   }
 
   exportBackup() {
@@ -12,6 +13,7 @@ export class JsonBackupService {
       version: 1,
       exportedAt: new Date().toISOString(),
       settings: this.settingsRepo.getSettings(),
+      projects: this.projectRepo?.getAll().map((project) => project.toJSON()) || [],
       logs: this.logRepo.getAll().map((log) => log.toJSON())
     };
 
@@ -36,6 +38,10 @@ export class JsonBackupService {
       employers: (payload.settings?.employers || []).map((item) => new Employer(item)),
       lastSelectedEmployerId: payload.settings?.lastSelectedEmployerId || null
     });
+
+    if (Array.isArray(payload.projects)) {
+      this.projectRepo?.replaceAll(payload.projects);
+    }
 
     this.logRepo.saveAll(payload.logs.map((item) => WorkLog.fromJSON(item)));
     return payload;

@@ -6,10 +6,13 @@ export class CsvExporter {
       return { success: false, message: "אין מה לייצא." };
     }
 
-    let csv = "תאריך,התחלה,סיום,משך,מעסיק,הערה\n";
+    // Project and unit count are the last columns so CSV files from older versions still import correctly.
+    let csv = "תאריך,התחלה,סיום,משך,מעסיק,הערה,פרויקט,כמות\n";
     logs.forEach((log) => {
       const note = (log.note || "").replace(/"/g, '""');
-      csv += `${log.date},${log.start},${log.end},${log.durationStr},${log.employerName || ""},"${note}"\n`;
+      const project = (log.projectName || "").replace(/"/g, '""');
+      const units = log.unitCount ?? "";
+      csv += `${log.date},${log.start},${log.end},${log.durationStr},${log.employerName || ""},"${note}","${project}",${units}\n`;
     });
 
     const total = logs.reduce((sum, log) => sum + (log.durationMs || 0), 0);

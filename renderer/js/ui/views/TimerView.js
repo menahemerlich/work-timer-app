@@ -8,6 +8,14 @@ export class TimerView {
     this.employerBadge = document.getElementById("employerBadge");
     this.employerName = document.getElementById("employerName");
     this.employerInitial = document.getElementById("employerInitial");
+    this.employerProject = document.getElementById("employerProject");
+    this.employerProjectFixed = document.getElementById("employerProjectFixed");
+    this.unitCounter = document.getElementById("unitCounter");
+    this.unitCountValue = document.getElementById("unitCountValue");
+    this.unitCountLabel = document.getElementById("unitCountLabel");
+    this.unitDoneCount = document.getElementById("unitDoneCount");
+    this.unitPlusBtn = document.getElementById("unitPlusBtn");
+    this.unitMinusBtn = document.getElementById("unitMinusBtn");
     this.sessionNoteBtn = document.getElementById("sessionNoteBtn");
     this.timerStage = document.getElementById("timerStage");
     this.timerHint = document.getElementById("timerHint");
@@ -41,7 +49,7 @@ export class TimerView {
 
     if (snapshot.isRunning) {
       if (snapshot.employerName) {
-        this.setEmployerChip(snapshot.employerName);
+        this.setEmployerChip(snapshot.employerName, snapshot.projectName, snapshot.projectBillingLabel);
       } else {
         this.hideEmployerChip();
       }
@@ -53,8 +61,14 @@ export class TimerView {
       this.statusLabel.textContent = snapshot.isPaused ? "מושהה" : "בעבודה";
       this.timerStage?.setAttribute("data-state", snapshot.isPaused ? "paused" : "running");
       this.timerHint.textContent = snapshot.isPaused ? "הטיימר מושהה" : "עובדים עכשיו…";
+      if (snapshot.projectIsFixed) {
+        this.timerHint.textContent += " · לפי עבודה, לא נספר בשכר";
+      } else if (snapshot.projectIsUnit) {
+        this.timerHint.textContent += " · משולם לפי יחידה";
+      }
       this.setStatus(snapshot.isPaused ? "is-paused" : "is-working");
       this.showSessionNoteBtn(snapshot.hasNote);
+      this.renderUnitCounter(snapshot);
     } else {
       this.startBtn.disabled = false;
       this.pauseBtn.disabled = true;
@@ -69,7 +83,35 @@ export class TimerView {
       this.durationDisplay.textContent = "-";
       this.hideEmployerChip();
       this.hideSessionNoteBtn();
+      this.renderUnitCounter(null);
     }
+  }
+
+  renderUnitCounter(snapshot) {
+    if (!this.unitCounter) {
+      return;
+    }
+
+    const count = snapshot?.unitCount;
+    if (count === null || count === undefined || !snapshot.currentUnitNumber) {
+      this.unitCounter.hidden = true;
+      this.lastUnitCount = null;
+      return;
+    }
+
+    this.unitCounter.hidden = false;
+    this.unitCountValue.textContent = String(snapshot.currentUnitNumber);
+    this.unitCountLabel.textContent = `${snapshot.unitSingular || "יחידה"} מס'`;
+    this.unitDoneCount.textContent = String(count);
+    this.unitMinusBtn.hidden = count <= 0;
+
+    if (this.lastUnitCount !== null && this.lastUnitCount !== undefined && count !== this.lastUnitCount) {
+      this.unitCounter.classList.remove("is-bumped");
+      // eslint-disable-next-line no-unused-expressions
+      this.unitCounter.offsetHeight;
+      this.unitCounter.classList.add("is-bumped");
+    }
+    this.lastUnitCount = count;
   }
 
   setMotivation(text) {
@@ -110,7 +152,7 @@ export class TimerView {
     }
   }
 
-  setEmployerChip(name) {
+  setEmployerChip(name, projectName = null, billingLabel = null) {
     const trimmed = name.trim();
     if (!this.employerBadge || !trimmed) {
       this.hideEmployerChip();
@@ -119,6 +161,14 @@ export class TimerView {
 
     this.employerName.textContent = trimmed;
     this.employerInitial.textContent = trimmed.charAt(0);
+    if (this.employerProject) {
+      this.employerProject.textContent = projectName || "";
+      this.employerProject.hidden = !projectName;
+    }
+    if (this.employerProjectFixed) {
+      this.employerProjectFixed.textContent = billingLabel || "";
+      this.employerProjectFixed.hidden = !(projectName && billingLabel);
+    }
     this.employerBadge.hidden = false;
   }
 

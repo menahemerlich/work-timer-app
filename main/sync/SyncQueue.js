@@ -5,9 +5,10 @@ class SyncQueue {
 
   static ENTITY_ORDER = {
     employer: 0,
-    app_settings: 1,
-    work_log: 2,
-    timer_state: 3
+    project: 1,
+    app_settings: 2,
+    work_log: 3,
+    timer_state: 4
   };
 
   getPending() {

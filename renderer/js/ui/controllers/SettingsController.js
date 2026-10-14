@@ -1,12 +1,20 @@
 import { Employer } from "../../core/models/Employer.js";
+import { Project, BILLING_TYPES } from "../../core/models/Project.js";
 import { generateId } from "../../core/utils/uuid.js";
+import {
+  describeProjectStats,
+  sumMsByProject,
+  sumUnitsByProject
+} from "../../core/utils/projectBilling.js";
 import { confirmDialog, refocusSettingsInput } from "../components/ConfirmDialog.js";
 import { restoreFieldFocus } from "../components/FocusGuard.js";
 
 export class SettingsController {
-  constructor({ view, employerRepo, onEmployersChanged, modal }) {
+  constructor({ view, employerRepo, projectRepo, logRepo, onEmployersChanged, modal }) {
     this.view = view;
     this.employerRepo = employerRepo;
+    this.projectRepo = projectRepo;
+    this.logRepo = logRepo;
     this.onEmployersChanged = onEmployersChanged;
     this.modal = modal;
     this.editingEmployerId = null;
@@ -54,6 +62,18 @@ export class SettingsController {
     this.view.motivationDurationInput?.addEventListener("change", () => {
       void this.handleMotivationSettingsChanged();
     });
+
+    // Keep project time totals current; skip while the user is typing in the list.
+    window.addEventListener("logs:changed", () => this.refreshIfIdle());
+    window.addEventListener("projects:changed", () => this.refreshIfIdle());
+  }
+
+  refreshIfIdle() {
+    const active = document.activeElement;
+    if (active && this.view.employersList?.contains(active)) {
+      return;
+    }
+    this.refresh();
   }
 
   refresh() {
@@ -77,6 +97,10 @@ export class SettingsController {
       this.view.motivationDurationInput.value = settings.motivationDurationSeconds ?? "";
     }
 
+    const allLogs = this.logRepo?.getAll() || [];
+    const projectTotals = sumMsByProject(allLogs);
+    const projectUnits = sumUnitsByProject(allLogs);
+
     this.view.renderEmployers(this.employerRepo.getAll(), {
       editingId: this.editingEmployerId,
       onStartEdit: (id) => {
@@ -94,8 +118,133 @@ export class SettingsController {
       },
       onSetHourlyRate: (id, rate) => {
         void this.handleSetHourlyRate(id, rate);
+      },
+      getProjects: (employerId) => this.projectRepo?.getByEmployer(employerId) || [],
+      getProjectStats: (project) =>
+        describeProjectStats(
+          project,
+          projectTotals.get(project.id) || 0,
+          projectUnits.get(project.id) || 0
+        ),
+      onAddProject: (employerId, values) => {
+        void this.handleAddProject(employerId, values);
+      },
+      onUpdateProject: (id, changes) => {
+        void this.handleUpdateProject(id, changes);
+      },
+      onDeleteProject: (id) => {
+        void this.handleDeleteProject(id);
       }
     });
+  }
+
+  validateProjectPrice(price, message = "מחיר לעבודה חייב להיות מספר חיובי.") {
+    if (price !== null && price !== undefined && (Number.isNaN(price) || price < 0)) {
+      this.view.showFeedback(message, "error");
+      return false;
+    }
+    return true;
+  }
+
+  async handleAddProject(employerId, { name, billingType, fixedPrice, unitPrice, unitName, unitSingular }) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) {
+      this.view.showFeedback("יש להזין שם פרויקט.", "error");
+      return;
+    }
+    if (this.projectRepo.nameExists(employerId, trimmed)) {
+      this.view.showFeedback("פרויקט בשם זה כבר קיים אצל המעסיק.", "error");
+      return;
+    }
+    if (
+      !this.validateProjectPrice(fixedPrice) ||
+      !this.validateProjectPrice(unitPrice, "מחיר ליחידה חייב להיות מספר חיובי.")
+    ) {
+      return;
+    }
+
+    try {
+      await this.projectRepo.save(
+        Project.create(
+          { employerId, name: trimmed, billingType, fixedPrice, unitPrice, unitName, unitSingular },
+          generateId
+        )
+      );
+      this.view.openProjectBlocks?.add(employerId);
+      this.refresh();
+      this.view.showFeedback(`הפרויקט "${trimmed}" נוסף.`);
+      this.onEmployersChanged?.();
+    } catch (error) {
+      this.refresh();
+      this.view.showFeedback(error.message || "שמירת הפרויקט נכשלה.", "error");
+    }
+  }
+
+  async handleUpdateProject(id, changes) {
+    const project = this.projectRepo.getById(id);
+    if (!project) {
+      return;
+    }
+
+    const next = { ...changes };
+    if (next.name !== undefined) {
+      next.name = next.name.trim();
+      if (!next.name) {
+        this.view.showFeedback("שם פרויקט לא יכול להיות ריק.", "error");
+        this.refresh();
+        return;
+      }
+      if (this.projectRepo.nameExists(project.employerId, next.name, id)) {
+        this.view.showFeedback("פרויקט בשם זה כבר קיים אצל המעסיק.", "error");
+        this.refresh();
+        return;
+      }
+    }
+    if (next.fixedPrice !== undefined && !this.validateProjectPrice(next.fixedPrice)) {
+      return;
+    }
+    if (
+      next.unitPrice !== undefined &&
+      !this.validateProjectPrice(next.unitPrice, "מחיר ליחידה חייב להיות מספר חיובי.")
+    ) {
+      return;
+    }
+
+    try {
+      await this.projectRepo.update(id, next);
+      this.refresh();
+      if (next.billingType === BILLING_TYPES.FIXED) {
+        this.view.showFeedback("הפרויקט עבר לתשלום לפי עבודה — הזמן שלו לא ייספר בשכר לפי שעה.");
+      } else if (next.billingType === BILLING_TYPES.UNIT) {
+        this.view.showFeedback("הפרויקט עבר לתשלום לפי יחידה — הגדר שם יחידה ומחיר ליחידה.");
+      } else {
+        this.view.showFeedback("הפרויקט עודכן.");
+      }
+      this.onEmployersChanged?.();
+    } catch (error) {
+      this.refresh();
+      this.view.showFeedback(error.message || "עדכון הפרויקט נכשל.", "error");
+    }
+  }
+
+  async handleDeleteProject(id) {
+    const confirmed = await confirmDialog(
+      "למחוק את הפרויקט? דוחות קיימים יישמרו עם שם הפרויקט."
+    );
+    if (!confirmed) {
+      refocusSettingsInput();
+      return;
+    }
+
+    try {
+      await this.projectRepo.delete(id);
+      this.refresh();
+      refocusSettingsInput();
+      this.onEmployersChanged?.();
+    } catch (error) {
+      this.refresh();
+      this.view.showFeedback(error.message || "מחיקת הפרויקט נכשלה.", "error");
+    }
   }
 
   async handleAdd() {
@@ -155,7 +304,7 @@ export class SettingsController {
 
   async handleDelete(id) {
     const confirmed = await confirmDialog(
-      "למחוק את המעסיק? דוחות קיימים יישמרו עם השם הנוכחי."
+      "למחוק את המעסיק? גם הפרויקטים שלו יימחקו. דוחות קיימים יישמרו עם השם הנוכחי."
     );
 
     if (!confirmed) {
@@ -170,6 +319,8 @@ export class SettingsController {
     this.view.preserveFocusBeforeListUpdate();
     try {
       await this.employerRepo.delete(id);
+      // Otherwise the projects stay active and fixed prices keep counting in the totals.
+      await this.projectRepo?.deleteByEmployer(id);
       this.refresh();
       refocusSettingsInput();
       this.onEmployersChanged?.();

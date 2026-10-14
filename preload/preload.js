@@ -34,6 +34,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
       upsert: (employer) => ipcRenderer.invoke("db:employers:upsert", employer),
       delete: (id) => ipcRenderer.invoke("db:employers:delete", id)
     },
+    projects: {
+      getAll: () => ipcRenderer.invoke("db:projects:getAll"),
+      upsert: (project) => ipcRenderer.invoke("db:projects:upsert", project),
+      delete: (id) => ipcRenderer.invoke("db:projects:delete", id)
+    },
     logs: {
       getAll: () => ipcRenderer.invoke("db:logs:getAll"),
       upsert: (log) => ipcRenderer.invoke("db:logs:upsert", log),

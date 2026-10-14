@@ -33,6 +33,10 @@ body.modal-open #appModal {
   box-shadow: 0 24px 60px rgba(167, 139, 250, 0.3);
   border: 2px solid white;
   animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Tall dialogs scroll inside the body so the title and buttons stay visible. */
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes popIn {
@@ -76,6 +80,9 @@ body.modal-open #appModal {
 
 .modal-body {
   margin-bottom: 4px;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0 2px;
 }
 
 .modal-feedback {
@@ -165,4 +172,56 @@ body.modal-open #appModal {
 .modal-actions .btn-action {
   flex: 0 1 auto;
   min-width: 100px;
+}
+
+.new-project-fields {
+  padding: 10px 12px 2px;
+  margin-top: 8px;
+  border-radius: 12px;
+  background: rgba(237, 233, 254, 0.5);
+}
+
+.project-billing-hint {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.new-project-fields[hidden],
+.project-billing-hint[hidden],
+#newProjectPriceWrap[hidden] {
+  display: none;
+}
+
+#newProjectUnitWrap[hidden] {
+  display: none;
+}
+
+.unit-question {
+  margin: 6px 0;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.unit-question-strong {
+  font-weight: 700;
+  color: #047857;
+}
+
+.unit-choice-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 6px;
+}
+
+.unit-choice-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+#logFormUnitsWrap[hidden] {
+  display: none;
 }

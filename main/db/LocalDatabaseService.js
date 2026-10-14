@@ -1,6 +1,13 @@
 const Database = require("better-sqlite3");
 const path = require("path");
-const { MIGRATION_V1, MIGRATION_V2, MIGRATION_V3 } = require("./schema");
+const {
+  MIGRATION_V1,
+  MIGRATION_V2,
+  MIGRATION_V3,
+  MIGRATION_V4,
+  MIGRATION_V5,
+  MIGRATION_V6
+} = require("./schema");
 
 function nowIso() {
   return new Date().toISOString();
@@ -41,6 +48,24 @@ class LocalDatabaseService {
     if (row.version < 3) {
       this.db.exec(MIGRATION_V3);
       this.db.prepare("UPDATE schema_version SET version = ?").run(3);
+    }
+
+    row = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() || row;
+    if (row.version < 4) {
+      this.db.exec(MIGRATION_V4);
+      this.db.prepare("UPDATE schema_version SET version = ?").run(4);
+    }
+
+    row = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() || row;
+    if (row.version < 5) {
+      this.db.exec(MIGRATION_V5);
+      this.db.prepare("UPDATE schema_version SET version = ?").run(5);
+    }
+
+    row = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() || row;
+    if (row.version < 6) {
+      this.db.exec(MIGRATION_V6);
+      this.db.prepare("UPDATE schema_version SET version = ?").run(6);
     }
   }
 
@@ -228,6 +253,87 @@ class LocalDatabaseService {
     }
   }
 
+  getAllProjects(includeDeleted = false) {
+    const sql = includeDeleted
+      ? "SELECT * FROM projects ORDER BY created_at"
+      : "SELECT * FROM projects WHERE deleted_at IS NULL ORDER BY created_at";
+    return this.db.prepare(sql).all().map(mapProjectRow);
+  }
+
+  getProjectById(id, { includeDeleted = false } = {}) {
+    const sql = includeDeleted
+      ? "SELECT * FROM projects WHERE id = ?"
+      : "SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL";
+    const row = this.db.prepare(sql).get(id);
+    return row ? mapProjectRow(row) : null;
+  }
+
+  upsertProject(project, { enqueue = true } = {}) {
+    const ts = nowIso();
+    const saved = {
+      id: project.id,
+      employerId: project.employerId,
+      name: project.name,
+      billingType: normalizeBillingType(project.billingType),
+      fixedPrice: project.fixedPrice ?? null,
+      unitPrice: project.unitPrice ?? null,
+      unitName: project.unitName || null,
+      unitSingular: project.unitSingular || null,
+      createdAt: project.createdAt || ts,
+      updatedAt: ts
+    };
+
+    this.db
+      .prepare(
+        `INSERT INTO projects (
+           id, employer_id, name, billing_type, fixed_price, unit_price, unit_name, unit_singular,
+           created_at, updated_at, deleted_at
+         )
+         VALUES (
+           @id, @employer_id, @name, @billing_type, @fixed_price, @unit_price, @unit_name, @unit_singular,
+           @created_at, @updated_at, NULL
+         )
+         ON CONFLICT(id) DO UPDATE SET
+           employer_id = excluded.employer_id,
+           name = excluded.name,
+           billing_type = excluded.billing_type,
+           fixed_price = excluded.fixed_price,
+           unit_price = excluded.unit_price,
+           unit_name = excluded.unit_name,
+           unit_singular = excluded.unit_singular,
+           updated_at = excluded.updated_at,
+           deleted_at = NULL`
+      )
+      .run({
+        id: saved.id,
+        employer_id: saved.employerId,
+        name: saved.name,
+        billing_type: saved.billingType,
+        fixed_price: saved.fixedPrice,
+        unit_price: saved.unitPrice,
+        unit_name: saved.unitName,
+        unit_singular: saved.unitSingular,
+        created_at: saved.createdAt,
+        updated_at: ts
+      });
+
+    if (enqueue) {
+      this.enqueueSync("project", saved.id, "upsert", saved);
+    }
+    return saved;
+  }
+
+  deleteProject(id, { enqueue = true } = {}) {
+    const ts = nowIso();
+    this.db
+      .prepare("UPDATE projects SET deleted_at = ?, updated_at = ? WHERE id = ?")
+      .run(ts, ts, id);
+
+    if (enqueue) {
+      this.enqueueSync("project", id, "delete", { id, deletedAt: ts });
+    }
+  }
+
   getAllLogs(includeDeleted = false) {
     const sql = includeDeleted
       ? "SELECT * FROM work_logs ORDER BY date DESC, start_time DESC"
@@ -243,10 +349,12 @@ class LocalDatabaseService {
       .prepare(
         `INSERT INTO work_logs (
           id, date, start_time, end_time, duration_ms, duration_str,
-          employer_id, employer_name, note, updated_at, deleted_at
+          employer_id, employer_name, project_id, project_name, unit_count, unit_open,
+          note, updated_at, deleted_at
         ) VALUES (
           @id, @date, @start, @end, @duration_ms, @duration_str,
-          @employer_id, @employer_name, @note, @updated_at, NULL
+          @employer_id, @employer_name, @project_id, @project_name, @unit_count, @unit_open,
+          @note, @updated_at, NULL
         )
         ON CONFLICT(id) DO UPDATE SET
           date = excluded.date,
@@ -256,6 +364,10 @@ class LocalDatabaseService {
           duration_str = excluded.duration_str,
           employer_id = excluded.employer_id,
           employer_name = excluded.employer_name,
+          project_id = excluded.project_id,
+          project_name = excluded.project_name,
+          unit_count = excluded.unit_count,
+          unit_open = excluded.unit_open,
           note = excluded.note,
           updated_at = excluded.updated_at,
           deleted_at = NULL`
@@ -269,6 +381,10 @@ class LocalDatabaseService {
         duration_str: resolved.durationStr,
         employer_id: resolved.employerId || null,
         employer_name: resolved.employerName,
+        project_id: resolved.projectId || null,
+        project_name: resolved.projectId ? resolved.projectName || null : null,
+        unit_count: resolved.projectId ? normalizeUnitCount(resolved.unitCount) : null,
+        unit_open: resolved.projectId && resolved.unitOpen ? 1 : 0,
         note: resolved.note || "",
         updated_at: ts
       });
@@ -282,6 +398,10 @@ class LocalDatabaseService {
       durationStr: resolved.durationStr,
       employerId: resolved.employerId || null,
       employerName: resolved.employerName,
+      projectId: resolved.projectId || null,
+      projectName: resolved.projectId ? resolved.projectName || null : null,
+      unitCount: resolved.projectId ? normalizeUnitCount(resolved.unitCount) : null,
+      unitOpen: Boolean(resolved.projectId && resolved.unitOpen),
       note: resolved.note || "",
       updatedAt: ts
     };
@@ -479,6 +599,9 @@ class LocalDatabaseService {
       isRunning: !!state.isRunning,
       employerId: state.employerId || null,
       employerName: state.employerName || null,
+      projectId: state.projectId || null,
+      projectName: state.projectId ? state.projectName || null : null,
+      unitCount: state.projectId ? normalizeUnitCount(state.unitCount) : null,
       originalStartTime: runtime ? state.originalStartTime : null,
       segmentStartTime: runtime ? state.segmentStartTime : null,
       sessionNote: state.sessionNote || ""
@@ -488,9 +611,11 @@ class LocalDatabaseService {
       .prepare(
         `INSERT INTO timer_state (
           id, elapsed_ms, is_paused, is_running, employer_id, employer_name,
+          project_id, project_name, unit_count,
           original_start_time, segment_start_time, session_note, updated_at
         ) VALUES (
           1, @elapsed_ms, @is_paused, @is_running, @employer_id, @employer_name,
+          @project_id, @project_name, @unit_count,
           @original_start_time, @segment_start_time, @session_note, @updated_at
         )
         ON CONFLICT(id) DO UPDATE SET
@@ -499,6 +624,9 @@ class LocalDatabaseService {
           is_running = excluded.is_running,
           employer_id = excluded.employer_id,
           employer_name = excluded.employer_name,
+          project_id = excluded.project_id,
+          project_name = excluded.project_name,
+          unit_count = excluded.unit_count,
           original_start_time = excluded.original_start_time,
           segment_start_time = excluded.segment_start_time,
           session_note = excluded.session_note,
@@ -510,6 +638,9 @@ class LocalDatabaseService {
         is_running: payload.isRunning ? 1 : 0,
         employer_id: payload.employerId,
         employer_name: payload.employerName,
+        project_id: payload.projectId,
+        project_name: payload.projectName,
+        unit_count: payload.unitCount,
         original_start_time: payload.originalStartTime
           ? new Date(payload.originalStartTime).toISOString()
           : null,
@@ -536,6 +667,7 @@ class LocalDatabaseService {
     const tx = this.db.transaction(() => {
       // Clear user data
       this.db.prepare("DELETE FROM work_logs").run();
+      this.db.prepare("DELETE FROM projects").run();
       this.db.prepare("DELETE FROM employers").run();
       this.db.prepare("DELETE FROM app_settings").run();
       this.db.prepare("DELETE FROM timer_state").run();
@@ -581,7 +713,15 @@ class LocalDatabaseService {
         name: employer.name,
         createdAt: employer.createdAt,
         color: employer.color,
+        hourlyRate: employer.hourlyRate ?? null,
         updatedAt: employer.updatedAt || ts
+      });
+    });
+
+    this.getAllProjects().forEach((project) => {
+      this.enqueueSync("project", project.id, "upsert", {
+        ...project,
+        updatedAt: project.updatedAt || ts
       });
     });
 
@@ -595,6 +735,10 @@ class LocalDatabaseService {
         durationStr: log.durationStr,
         employerId: log.employerId,
         employerName: log.employerName,
+        projectId: log.projectId,
+        projectName: log.projectName,
+        unitCount: log.unitCount,
+        unitOpen: log.unitOpen,
         note: log.note,
         updatedAt: log.updatedAt || ts
       });
@@ -639,6 +783,34 @@ function mapEmployerRow(row) {
   };
 }
 
+function normalizeBillingType(value) {
+  return value === "fixed" || value === "unit" ? value : "hourly";
+}
+
+function normalizeUnitCount(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const num = Math.floor(Number(value));
+  return Number.isFinite(num) && num >= 0 ? num : null;
+}
+
+function mapProjectRow(row) {
+  return {
+    id: row.id,
+    employerId: row.employer_id,
+    name: row.name,
+    billingType: normalizeBillingType(row.billing_type),
+    fixedPrice: row.fixed_price ?? null,
+    unitPrice: row.unit_price ?? null,
+    unitName: row.unit_name || null,
+    unitSingular: row.unit_singular || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at
+  };
+}
+
 function mapLogRow(row) {
   return {
     id: row.id,
@@ -649,6 +821,10 @@ function mapLogRow(row) {
     durationStr: row.duration_str,
     employerId: row.employer_id,
     employerName: row.employer_name,
+    projectId: row.project_id || null,
+    projectName: row.project_name || null,
+    unitCount: row.unit_count ?? null,
+    unitOpen: Boolean(row.unit_open),
     note: row.note || "",
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at
@@ -662,6 +838,9 @@ function mapTimerRow(row) {
     isRunning: !!row.is_running,
     employerId: row.employer_id,
     employerName: row.employer_name,
+    projectId: row.project_id || null,
+    projectName: row.project_name || null,
+    unitCount: row.unit_count ?? null,
     originalStartTime: row.original_start_time ? new Date(row.original_start_time) : null,
     segmentStartTime: row.segment_start_time ? new Date(row.segment_start_time) : null,
     sessionNote: row.session_note || ""

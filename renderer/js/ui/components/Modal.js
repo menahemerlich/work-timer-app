@@ -72,13 +72,15 @@ export class Modal {
     confirmText = "אישור",
     onConfirm,
     onDismiss = null,
-    hideConfirm = false
+    hideConfirm = false,
+    cancelText = "ביטול"
   }) {
     releaseTrappedFocus();
 
     this.titleEl.textContent = title;
     this.bodyEl.innerHTML = bodyHtml;
     this.confirmBtn.textContent = confirmText;
+    this.cancelBtn.textContent = cancelText;
     this.confirmBtn.style.display = hideConfirm ? "none" : "inline-flex";
     this.onConfirm = onConfirm;
     this.onDismiss = onDismiss;

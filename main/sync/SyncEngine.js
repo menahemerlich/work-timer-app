@@ -126,12 +126,23 @@ class SyncEngine {
       return;
     }
 
+    if (entity_type === "project") {
+      if (operation !== "delete" && payload.employerId) {
+        await this.ensureEmployerInCloud(userId, payload.employerId);
+      }
+      await this.supabase.pushProject(userId, payload, operation);
+      return;
+    }
+
     if (entity_type === "work_log") {
       let logPayload = payload;
       if (operation !== "delete") {
         logPayload = this.localDb.resolveLogEmployer(payload);
         if (logPayload.employerId) {
           await this.ensureEmployerInCloud(userId, logPayload.employerId);
+        }
+        if (logPayload.projectId) {
+          await this.ensureProjectInCloud(userId, logPayload.projectId);
         }
       }
       await this.supabase.pushWorkLog(userId, logPayload, operation);
@@ -172,6 +183,16 @@ class SyncEngine {
     );
   }
 
+  async ensureProjectInCloud(userId, projectId) {
+    const local = this.localDb.getProjectById(projectId, { includeDeleted: true });
+    if (!local || local.deletedAt) {
+      // Deleted projects are already reflected in the cloud by their own queue item.
+      return;
+    }
+
+    await this.supabase.pushProject(userId, local, "upsert");
+  }
+
   async pullRemote({ throwOnError = false } = {}) {
     const userId = this.supabase.getUserId();
     if (!userId || !this.isOnlineFn()) {
@@ -205,6 +226,30 @@ class SyncEngine {
         }
       });
 
+      (remote.projects || []).forEach((row) => {
+        const localUpdated = this.findLocalUpdated("project", row.id);
+        if (!localUpdated || new Date(row.updated_at) >= new Date(localUpdated)) {
+          if (row.deleted_at) {
+            this.localDb.deleteProject(row.id, { enqueue: false });
+          } else {
+            this.localDb.upsertProject(
+              {
+                id: row.id,
+                employerId: row.employer_id,
+                name: row.name,
+                billingType: row.billing_type,
+                fixedPrice: row.fixed_price ?? null,
+                unitPrice: row.unit_price ?? null,
+                unitName: row.unit_name || null,
+                unitSingular: row.unit_singular || null,
+                createdAt: row.created_at
+              },
+              { enqueue: false }
+            );
+          }
+        }
+      });
+
       remote.workLogs.forEach((row) => {
         const localUpdated = this.findLocalUpdated("work_log", row.id);
         if (!localUpdated || new Date(row.updated_at) >= new Date(localUpdated)) {
@@ -221,6 +266,10 @@ class SyncEngine {
                 durationStr: row.duration_str,
                 employerId: row.employer_id,
                 employerName: row.employer_name,
+                projectId: row.project_id || null,
+                projectName: row.project_name || null,
+                unitCount: row.unit_count ?? null,
+                unitOpen: Boolean(row.unit_open),
                 note: row.note
               },
               { enqueue: false }
@@ -265,6 +314,9 @@ class SyncEngine {
             isRunning: remote.timerState.is_running,
             employerId: remote.timerState.employer_id,
             employerName: remote.timerState.employer_name,
+            projectId: remote.timerState.project_id || null,
+            projectName: remote.timerState.project_name || null,
+            unitCount: remote.timerState.unit_count ?? null,
             originalStartTime: remote.timerState.original_start_time,
             segmentStartTime: remote.timerState.segment_start_time,
             sessionNote: remote.timerState.session_note
@@ -295,6 +347,9 @@ class SyncEngine {
     if (entityType === "employer") {
       const row = this.localDb.getAllEmployers(true).find((item) => item.id === entityId);
       return row?.updatedAt || null;
+    }
+    if (entityType === "project") {
+      return this.localDb.getProjectById(entityId, { includeDeleted: true })?.updatedAt || null;
     }
     if (entityType === "work_log") {
       const row = this.localDb.getAllLogs(true).find((item) => item.id === entityId);

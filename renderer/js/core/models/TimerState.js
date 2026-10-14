@@ -5,6 +5,9 @@ export class TimerState {
     isRunning = false,
     employerId = null,
     employerName = null,
+    projectId = null,
+    projectName = null,
+    unitCount = null,
     originalStartTime = null,
     segmentStartTime = null,
     sessionNote = ""
@@ -14,6 +17,9 @@ export class TimerState {
     this.isRunning = isRunning;
     this.employerId = employerId;
     this.employerName = employerName;
+    this.projectId = projectId || null;
+    this.projectName = projectId ? projectName || null : null;
+    this.unitCount = projectId && unitCount !== null && unitCount !== undefined ? unitCount : null;
     this.originalStartTime = originalStartTime;
     this.segmentStartTime = segmentStartTime;
     this.sessionNote = sessionNote || "";
@@ -26,6 +32,9 @@ export class TimerState {
       isRunning: this.isRunning,
       employerId: this.employerId,
       employerName: this.employerName,
+      projectId: this.projectId,
+      projectName: this.projectName,
+      unitCount: this.unitCount,
       sessionNote: this.sessionNote || ""
     };
   }
@@ -49,6 +58,9 @@ export class TimerState {
       isRunning: !!data.isRunning,
       employerId: data.employerId || null,
       employerName: data.employerName || null,
+      projectId: data.projectId || null,
+      projectName: data.projectName || null,
+      unitCount: data.unitCount ?? null,
       originalStartTime: data.originalStartTime ? new Date(data.originalStartTime) : null,
       segmentStartTime: data.segmentStartTime ? new Date(data.segmentStartTime) : null,
       sessionNote: data.sessionNote || ""

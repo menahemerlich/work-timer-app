@@ -27,6 +27,9 @@ export class TimerService {
       isRunning: this.state.isRunning,
       employerId: this.state.employerId,
       employerName: this.state.employerName,
+      projectId: this.state.projectId,
+      projectName: this.state.projectName,
+      unitCount: this.state.unitCount,
       originalStartTime: this.state.originalStartTime,
       sessionNote: this.state.sessionNote || "",
       hasNote: Boolean((this.state.sessionNote || "").trim())
@@ -47,7 +50,10 @@ export class TimerService {
       isPaused: this.state.isPaused,
       isRunning: this.state.isRunning,
       employerId: this.state.employerId,
-      employerName: this.state.employerName
+      employerName: this.state.employerName,
+      projectId: this.state.projectId,
+      projectName: this.state.projectName,
+      unitCount: this.state.unitCount
     });
 
     this.timerStateRepo.savePersistedState(persisted);
@@ -73,7 +79,7 @@ export class TimerService {
     }
   }
 
-  start({ employerId, employerName }) {
+  start({ employerId, employerName, projectId = null, projectName = null, countUnits = false }) {
     const now = new Date();
     this.state = new TimerState({
       elapsedMs: 0,
@@ -81,6 +87,9 @@ export class TimerService {
       isRunning: true,
       employerId,
       employerName,
+      projectId,
+      projectName,
+      unitCount: projectId && countUnits ? 0 : null,
       originalStartTime: now,
       segmentStartTime: now,
       sessionNote: ""
@@ -116,12 +125,13 @@ export class TimerService {
     return this.stopAsync();
   }
 
-  async stopAsync() {
+  /** endTime lets the caller fix the end of the session at the moment "stop" was pressed. */
+  async stopAsync({ endTime = null, unitOpen = false } = {}) {
     if (!this.state.isRunning && this.state.elapsedMs === 0) {
       return null;
     }
 
-    const now = new Date();
+    const now = endTime || new Date();
     if (this.state.segmentStartTime) {
       this.state.elapsedMs += now.getTime() - this.state.segmentStartTime.getTime();
     }
@@ -135,6 +145,10 @@ export class TimerService {
       durationMs,
       employerId: this.state.employerId,
       employerName: this.state.employerName,
+      projectId: this.state.projectId,
+      projectName: this.state.projectName,
+      unitCount: this.state.unitCount,
+      unitOpen,
       note: this.state.sessionNote || ""
     });
 
@@ -159,6 +173,25 @@ export class TimerService {
       this.startTimerInterval();
     }
 
+    this.notify();
+  }
+
+  /** Adds delta to the session's unit counter (per-unit projects only). */
+  adjustUnitCount(delta) {
+    if (!this.state.isRunning || this.state.unitCount === null) {
+      return;
+    }
+
+    this.setUnitCount(this.state.unitCount + delta);
+  }
+
+  setUnitCount(count) {
+    if (!this.state.isRunning || this.state.unitCount === null) {
+      return;
+    }
+
+    this.state.unitCount = Math.max(0, Math.floor(Number(count) || 0));
+    this.persistState();
     this.notify();
   }
 

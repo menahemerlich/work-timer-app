@@ -11,6 +11,12 @@ import { generateId } from "../../core/utils/uuid.js";
 import { resolveEmployerColor } from "../../core/utils/employerColors.js";
 import { buildLogsArchiveStructure } from "../../core/utils/logGrouping.js";
 import { confirmDialog } from "../components/ConfirmDialog.js";
+import {
+  effectiveHourlyRate,
+  formatMoney,
+  getFixedProjectsIncomeForMonth,
+  sumMsByProject
+} from "../../core/utils/projectBilling.js";
 
 export class ReportsController {
   constructor({
@@ -18,6 +24,7 @@ export class ReportsController {
     modal,
     logRepo,
     employerRepo,
+    projectRepo,
     reportService,
     validationService,
     csvExporter,
@@ -28,6 +35,7 @@ export class ReportsController {
     this.modal = modal;
     this.logRepo = logRepo;
     this.employerRepo = employerRepo;
+    this.projectRepo = projectRepo;
     this.reportService = reportService;
     this.validationService = validationService;
     this.csvExporter = csvExporter;
@@ -92,7 +100,23 @@ export class ReportsController {
     this.view.fileInput.addEventListener("change", (event) => this.handleCsvImport(event));
     this.view.backupInput.addEventListener("change", (event) => this.handleBackupImport(event));
 
+    window.addEventListener("projects:changed", () => this.refresh());
+
     this.refresh();
+  }
+
+  /** Current project name (falls back to the name saved on the log) and billing type. */
+  getProjectInfo(log) {
+    if (!log?.projectId) {
+      return null;
+    }
+    const project = this.projectRepo?.getById(log.projectId, { includeDeleted: true });
+    return {
+      name: project?.name || log.projectName || "פרויקט",
+      isFixed: Boolean(project?.isFixed),
+      isUnit: Boolean(project?.isUnit),
+      unitName: project?.displayUnitName || null
+    };
   }
 
   getFilters() {
@@ -193,7 +217,8 @@ export class ReportsController {
       onEdit: (log) => this.handleEdit(log),
       onDelete: (log) => this.handleDelete(log),
       onShowNote: (log) => this.handleShowNote(log),
-      getEmployerColor: (log) => this.getEmployerColorForLog(log)
+      getEmployerColor: (log) => this.getEmployerColorForLog(log),
+      getProjectInfo: (log) => this.getProjectInfo(log)
     };
     const archiveStructure = buildLogsArchiveStructure(filteredLogs);
 
@@ -238,7 +263,8 @@ export class ReportsController {
     this.view.renderMonthlySummary(this.reportService.getSummaryByEmployer(filteredMonthLogs), {
       hasMonthData: allLogs.length > 0,
       getEmployerColorByName: (name) => this.getEmployerColorByName(name),
-      onOpenCalculator: () => this.openMonthlyEarningsModal(filteredMonthLogs),
+      onOpenCalculator: () =>
+        this.openMonthlyEarningsModal(filteredMonthLogs, referenceDate, monthlyFilters),
       goalProgress
     });
   }
@@ -332,12 +358,29 @@ export class ReportsController {
     };
   }
 
-  openMonthlyEarningsModal(monthLogs) {
+  projectMatchesEmployerFilter(project, filters) {
+    const { employerFilters = [], totalOptions = employerFilters.length } = filters || {};
+    if (!this.shouldFilterByEmployers(employerFilters, totalOptions)) {
+      return true;
+    }
+    const employer = this.employerRepo.getById(project.employerId);
+    const pseudoLog = { employerId: project.employerId, employerName: employer?.name || "" };
+    return employerFilters.some((filter) => this.logMatchesEmployerFilter(pseudoLog, filter));
+  }
+
+  openMonthlyEarningsModal(monthLogs, referenceDate = new Date(), monthlyFilters = null) {
     const employers = this.employerRepo.getAll();
     const byName = new Map(employers.map((e) => [e.name, e]));
 
+    // Time on fixed-price and per-unit projects is tracked but not paid by the hour.
+    const isNonHourly = (log) => Boolean(this.projectRepo?.isNonHourlyLog(log));
+    const hourlyLogs = monthLogs.filter((log) => !isNonHourly(log));
+    const fixedLogs = monthLogs.filter(
+      (log) => this.projectRepo?.getById(log.projectId, { includeDeleted: true })?.isFixed
+    );
+
     const totals = new Map();
-    monthLogs.forEach((log) => {
+    hourlyLogs.forEach((log) => {
       const key = log.employerName || UNKNOWN_EMPLOYER;
       totals.set(key, (totals.get(key) || 0) + (log.durationMs || 0));
     });
@@ -354,15 +397,83 @@ export class ReportsController {
     const totalAmount = rows.reduce((sum, r) => sum + (r.amount || 0), 0);
     const hasAnyRate = rows.some((r) => r.rate !== null);
 
-    const formatMoney = (n) =>
-      `₪${Number(n || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const formatHours = (n) =>
       Number(n || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    const bodyHtml = `
-      <p class="modal-hint">
-        חישוב שכר לפי דוחות החודש המסוננים כרגע. תעריף לשעה נקבע בהגדרות לכל מעסיק.
-      </p>
+    // Fixed-price income counts in the month the project was created.
+    const activeEmployerIds = new Set(employers.map((employer) => employer.id));
+    const incomeProjects = getFixedProjectsIncomeForMonth(
+      this.projectRepo?.getAll() || [],
+      referenceDate,
+      activeEmployerIds
+    ).filter((project) => this.projectMatchesEmployerFilter(project, monthlyFilters));
+    const incomeIds = new Set(incomeProjects.map((project) => project.id));
+    const projectsTotal = incomeProjects.reduce((sum, project) => sum + project.fixedPrice, 0);
+
+    const monthMsByProject = sumMsByProject(fixedLogs);
+    const allMsByProject = sumMsByProject(this.logRepo.getAll());
+    const fixedProjectIds = new Set([...incomeIds, ...monthMsByProject.keys()]);
+    const fixedRows = Array.from(fixedProjectIds)
+      .map((projectId) => {
+        const project = this.projectRepo.getById(projectId, { includeDeleted: true });
+        const sampleLog = fixedLogs.find((log) => log.projectId === projectId);
+        const monthMs = monthMsByProject.get(projectId) || 0;
+        const totalMs = allMsByProject.get(projectId) || 0;
+        const employerName =
+          this.employerRepo.getById(project?.employerId)?.name || sampleLog?.employerName || "";
+        let priceCell = "—";
+        if (project?.fixedPrice !== null && project?.fixedPrice !== undefined) {
+          priceCell = incomeIds.has(projectId)
+            ? formatMoney(project.fixedPrice)
+            : `<span class="calc-sub">${formatMoney(project.fixedPrice)}<br />${this.describeIncomeMonth(project)}</span>`;
+        }
+        return {
+          name: project?.name || sampleLog?.projectName || "פרויקט",
+          employerName,
+          monthMs,
+          totalMs,
+          priceCell,
+          effectiveRate: effectiveHourlyRate(project?.fixedPrice ?? null, totalMs)
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "he"));
+
+    const fixedSectionHtml = fixedRows.length
+      ? `
+      <p class="modal-hint modal-hint-small">מחיר הפרויקט נספר בחודש שבו הפרויקט נוצר. הזמן מוצג לידיעתך בלבד.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>פרויקט</th>
+              <th>שעות החודש</th>
+              <th>שעות סה"כ</th>
+              <th>מחיר</th>
+              <th>₪ לשעה בפועל</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${fixedRows
+              .map(
+                (r) => `
+                  <tr>
+                    <td>${this.escapeHtml(r.name)}<div class="calc-sub">${this.escapeHtml(r.employerName)}</div></td>
+                    <td>${formatHours(r.monthMs / 3600000)}</td>
+                    <td>${formatHours(r.totalMs / 3600000)}</td>
+                    <td>${r.priceCell}</td>
+                    <td><strong>${r.effectiveRate === null ? "—" : formatMoney(r.effectiveRate)}</strong></td>
+                  </tr>
+                `
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `
+      : `<p class="modal-hint modal-hint-small">אין החודש פרויקטים לפי עבודה.</p>`;
+
+    const hourlyTableHtml = rows.length
+      ? `
       <div class="table-wrap">
         <table>
           <thead>
@@ -388,18 +499,6 @@ export class ReportsController {
                 `;
               })
               .join("")}
-            ${
-              hasAnyRate
-                ? `
-                  <tr class="summary-row">
-                    <td><strong>סה"כ</strong></td>
-                    <td></td>
-                    <td></td>
-                    <td><strong>${formatMoney(totalAmount)}</strong></td>
-                  </tr>
-                `
-                : ""
-            }
           </tbody>
         </table>
       </div>
@@ -408,6 +507,93 @@ export class ReportsController {
           ? ""
           : `<p class="modal-hint">לא הוגדר תעריף לשעה לאף מעסיק. ניתן להוסיף בהגדרות.</p>`
       }
+    `
+      : `<p class="modal-hint">אין החודש שעות לתשלום לפי שעה.</p>`;
+
+
+    // Per-unit income: units done this month × the project's unit price.
+    const unitLogs = monthLogs.filter((log) => this.projectRepo?.getById(log.projectId, { includeDeleted: true })?.isUnit);
+    const unitRows = Array.from(new Set(unitLogs.map((log) => log.projectId)))
+      .map((projectId) => {
+        const project = this.projectRepo.getById(projectId, { includeDeleted: true });
+        const projectLogs = unitLogs.filter((log) => log.projectId === projectId);
+        const units = projectLogs.reduce((sum, log) => sum + (log.unitCount || 0), 0);
+        const ms = projectLogs.reduce((sum, log) => sum + (log.durationMs || 0), 0);
+        const amount = project?.unitPrice !== null && project?.unitPrice !== undefined ? units * project.unitPrice : null;
+        return {
+          name: project?.name || projectLogs[0]?.projectName || "פרויקט",
+          employerName: projectLogs[0]?.employerName || "",
+          unitName: project?.displayUnitName || "יחידות",
+          units,
+          ms,
+          unitPrice: project?.unitPrice ?? null,
+          amount,
+          effectiveRate: effectiveHourlyRate(amount, ms)
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "he"));
+    const unitsTotal = unitRows.reduce((sum, r) => sum + (r.amount || 0), 0);
+
+    const unitSectionHtml = unitRows.length
+      ? `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>פרויקט</th>
+              <th>כמות</th>
+              <th>₪ ליחידה</th>
+              <th>סה"כ</th>
+              <th>₪ לשעה בפועל</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${unitRows
+              .map(
+                (r) => `
+                  <tr>
+                    <td>${this.escapeHtml(r.name)}<div class="calc-sub">${this.escapeHtml(r.employerName)}</div></td>
+                    <td>${r.units} <span class="calc-sub">${this.escapeHtml(r.unitName)}</span><div class="calc-sub">${formatHours(r.ms / 3600000)} שעות</div></td>
+                    <td>${r.unitPrice === null ? "—" : formatMoney(r.unitPrice).replace("₪", "")}</td>
+                    <td><strong>${r.amount === null ? "—" : formatMoney(r.amount)}</strong></td>
+                    <td>${r.effectiveRate === null ? "—" : formatMoney(r.effectiveRate)}</td>
+                  </tr>
+                `
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `
+      : `<p class="modal-hint modal-hint-small">אין החודש עבודה לפי יחידה.</p>`;
+
+    const grandTotal = totalAmount + projectsTotal + unitsTotal;
+
+    // Each income type is a collapsed group; clicking its line opens the details.
+    const group = (label, amount, contentHtml) => `
+      <details class="calc-group">
+        <summary class="calc-total-line">
+          <span class="calc-group-label">${label}</span>
+          <span>${formatMoney(amount)}</span>
+        </summary>
+        <div class="calc-group-body">${contentHtml}</div>
+      </details>
+    `;
+
+    const totalsHtml = `
+      <div class="calc-totals">
+        ${group("⏱️ מהשעות", totalAmount, hourlyTableHtml)}
+        ${group(`📁 מפרויקטים (${incomeProjects.length})`, projectsTotal, fixedSectionHtml)}
+        ${group("🔢 מיחידות", unitsTotal, unitSectionHtml)}
+        <div class="calc-total-line calc-total-grand"><span>סה"כ החודש</span><span>${formatMoney(grandTotal)}</span></div>
+      </div>
+    `;
+
+    const bodyHtml = `
+      <p class="modal-hint">
+        חישוב שכר לפי דוחות החודש המסוננים כרגע. תעריף לשעה נקבע בהגדרות לכל מעסיק.
+      </p>
+      ${totalsHtml}
     `;
 
     this.modal.show({
@@ -416,6 +602,14 @@ export class ReportsController {
       confirmText: "סגור",
       onConfirm: () => this.modal.hide()
     });
+  }
+
+  describeIncomeMonth(project) {
+    const created = new Date(project.createdAt);
+    if (Number.isNaN(created.getTime())) {
+      return "";
+    }
+    return `נספר ב${getHebrewMonthLabel(created.getMonth() + 1, created.getFullYear())}`;
   }
 
   buildLogFormHtml({ log, employers, requireEmployer = false }) {
@@ -456,9 +650,60 @@ export class ReportsController {
       <label class="field-label">שעת סיום</label>
       <input id="logFormEnd" type="time" step="1" class="field-input" value="${defaultEnd}" />
       ${employerField}
+      <label class="field-label">פרויקט</label>
+      <select id="logFormProject" class="field-input">
+        ${this.buildLogFormProjectOptions(log ? log.employerId || "" : selectedEmployerId, log)}
+      </select>
+      <div id="logFormUnitsWrap" hidden>
+        <label class="field-label" for="logFormUnits" id="logFormUnitsLabel">כמות</label>
+        <input id="logFormUnits" type="number" class="field-input" min="0" step="1" value="${log?.unitCount ?? 0}" />
+      </div>
       <label class="field-label">הערה</label>
       <textarea id="logFormNote" class="field-input note-textarea" placeholder="הערה אופציונלית…">${this.escapeHtml(log?.note || "")}</textarea>
     `;
+  }
+
+  buildLogFormProjectOptions(employerId, log = null) {
+    const selectedId = log?.projectId || "";
+    const projects = employerId ? this.projectRepo?.getByEmployer(employerId) || [] : [];
+    const options = [`<option value="">ללא פרויקט</option>`];
+
+    projects.forEach((project) => {
+      options.push(
+        `<option value="${project.id}" ${project.id === selectedId ? "selected" : ""}>${this.escapeHtml(project.name)}${project.isFixed ? " (לפי עבודה)" : project.isUnit ? " (לפי יחידה)" : ""}</option>`
+      );
+    });
+
+    // Keep a log's current project selectable even if it was deleted or belongs elsewhere.
+    if (selectedId && !projects.some((project) => project.id === selectedId) && log.employerId === (employerId || null)) {
+      const info = this.getProjectInfo(log);
+      options.push(`<option value="${selectedId}" selected>${this.escapeHtml(info?.name || "")} (נמחק)</option>`);
+    }
+
+    return options.join("");
+  }
+
+  bindLogFormProjectPicker(log = null) {
+    const employerSelect = document.getElementById("logFormEmployer");
+    const projectSelect = document.getElementById("logFormProject");
+    const syncUnits = () => {
+      const project = this.projectRepo?.getById(projectSelect?.value, { includeDeleted: true });
+      const wrap = document.getElementById("logFormUnitsWrap");
+      const label = document.getElementById("logFormUnitsLabel");
+      if (wrap) {
+        wrap.hidden = !project?.isUnit;
+      }
+      if (label && project?.isUnit) {
+        label.textContent = `כמה ${project.displayUnitName}?`;
+      }
+    };
+
+    employerSelect?.addEventListener("change", () => {
+      projectSelect.innerHTML = this.buildLogFormProjectOptions(employerSelect.value, log);
+      syncUnits();
+    });
+    projectSelect?.addEventListener("change", syncUnits);
+    syncUnits();
   }
 
   escapeHtml(text) {
@@ -491,6 +736,22 @@ export class ReportsController {
       employerName = employer.name;
     }
 
+    const projectId = document.getElementById("logFormProject")?.value || null;
+    let projectName = null;
+    let unitCount = null;
+    if (projectId) {
+      const project = this.projectRepo?.getById(projectId, { includeDeleted: true });
+      projectName = project?.name || existingLog?.projectName || null;
+      if (project?.isUnit) {
+        const raw = document.getElementById("logFormUnits")?.value ?? "";
+        unitCount = raw === "" ? 0 : Number(raw);
+        if (!Number.isInteger(unitCount) || unitCount < 0) {
+          this.modal.showFeedback("כמות חייבת להיות מספר שלם, 0 או יותר.");
+          return null;
+        }
+      }
+    }
+
     return {
       date,
       start,
@@ -499,6 +760,9 @@ export class ReportsController {
       durationStr: validation.durationStr,
       employerId: employerId || null,
       employerName,
+      projectId,
+      projectName,
+      unitCount,
       note: (document.getElementById("logFormNote")?.value || "").trim()
     };
   }
@@ -531,6 +795,7 @@ export class ReportsController {
         this.refresh();
       }
     });
+    this.bindLogFormProjectPicker();
   }
 
   handleEdit(log) {
@@ -557,6 +822,7 @@ export class ReportsController {
         this.refresh();
       }
     });
+    this.bindLogFormProjectPicker(log);
   }
 
   handleDelete(log) {

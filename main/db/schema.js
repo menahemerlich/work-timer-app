@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 6;
 
 const MIGRATION_V1 = `
 CREATE TABLE IF NOT EXISTS employers (
@@ -95,4 +95,51 @@ const MIGRATION_V3 = `
 ALTER TABLE employers ADD COLUMN hourly_rate REAL;
 `;
 
-module.exports = { SCHEMA_VERSION, MIGRATION_V1, MIGRATION_V2, MIGRATION_V3 };
+// Projects belong to an employer. billing_type is "hourly" (paid by the employer's
+// hourly rate) or "fixed" (paid a fixed price per job; time is tracked but not paid by the hour).
+const MIGRATION_V4 = `
+CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY,
+  employer_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  billing_type TEXT NOT NULL DEFAULT 'hourly',
+  fixed_price REAL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_projects_employer_id ON projects(employer_id);
+
+ALTER TABLE work_logs ADD COLUMN project_id TEXT;
+ALTER TABLE work_logs ADD COLUMN project_name TEXT;
+CREATE INDEX IF NOT EXISTS idx_work_logs_project_id ON work_logs(project_id);
+
+ALTER TABLE timer_state ADD COLUMN project_id TEXT;
+ALTER TABLE timer_state ADD COLUMN project_name TEXT;
+`;
+
+// billing_type "unit": paid per unit of work (e.g. per case). The count is kept per log.
+const MIGRATION_V5 = `
+ALTER TABLE projects ADD COLUMN unit_price REAL;
+ALTER TABLE projects ADD COLUMN unit_name TEXT;
+ALTER TABLE work_logs ADD COLUMN unit_count INTEGER;
+ALTER TABLE timer_state ADD COLUMN unit_count INTEGER;
+`;
+
+// unit_open: the session ended with a unit (e.g. a case) still in progress.
+// unit_singular: singular unit name ("תיק") next to the plural unit_name ("תיקים").
+const MIGRATION_V6 = `
+ALTER TABLE work_logs ADD COLUMN unit_open INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE projects ADD COLUMN unit_singular TEXT;
+`;
+
+module.exports = {
+  SCHEMA_VERSION,
+  MIGRATION_V1,
+  MIGRATION_V2,
+  MIGRATION_V3,
+  MIGRATION_V4,
+  MIGRATION_V5,
+  MIGRATION_V6
+};

@@ -36,7 +36,9 @@ async function update() {
   }
 
   timeEl.textContent = format(getElapsedMs(state));
-  employerEl.textContent = state.employerName ? state.employerName : "";
+  const units = state.unitCount !== null && state.unitCount !== undefined ? `${state.unitCount} יח׳` : null;
+  const label = [state.employerName, state.projectName, units].filter(Boolean).join(" · ");
+  employerEl.textContent = label;
 
   const hasTime = (state.elapsedMs || 0) > 0;
   toggleBtn.style.display = hasTime ? "inline-block" : "none";
