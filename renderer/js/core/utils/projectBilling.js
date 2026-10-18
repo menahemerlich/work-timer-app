@@ -79,6 +79,23 @@ export function getFixedProjectsIncomeForMonth(projects, referenceDate = new Dat
   );
 }
 
+/** Same as getFixedProjectsIncomeForMonth, for projects created on one "d.m.yyyy" day. */
+export function getFixedProjectsIncomeForDate(projects, dateStr, activeEmployerIds = null) {
+  return (projects || []).filter((project) => {
+    if (
+      project.billingType !== "fixed" ||
+      project.deletedAt ||
+      (activeEmployerIds && !activeEmployerIds.has(project.employerId)) ||
+      project.fixedPrice === null ||
+      project.fixedPrice === undefined
+    ) {
+      return false;
+    }
+    const created = project.createdAt ? new Date(project.createdAt) : null;
+    return Boolean(created) && !Number.isNaN(created.getTime()) && created.toLocaleDateString("he-IL") === dateStr;
+  });
+}
+
 /**
  * Per-unit income of the given logs (they should already be limited to one month):
  * count × the project's current unit price.

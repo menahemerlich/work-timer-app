@@ -217,16 +217,24 @@ class SupabaseService {
       return;
     }
 
-    const { error } = await client.from("employers").upsert({
+    const row = {
       id: employer.id,
       user_id: userId,
       name: employer.name,
       created_at: employer.createdAt,
       color: employer.color || null,
       hourly_rate: employer.hourlyRate ?? null,
+      rate_changes: Array.isArray(employer.rateChanges) ? employer.rateChanges : [],
       updated_at: employer.updatedAt || new Date().toISOString(),
       deleted_at: null
-    });
+    };
+    let { error } = await client.from("employers").upsert(row);
+    // Before supabase/003_rate_history.sql is applied the column is missing; keep syncing
+    // the rest of the employer as long as there are no raises that would be lost.
+    if (error && /rate_changes/.test(error.message || "") && !row.rate_changes.length) {
+      delete row.rate_changes;
+      ({ error } = await client.from("employers").upsert(row));
+    }
     if (error) {
       throw error;
     }
@@ -378,12 +386,16 @@ class SupabaseService {
     }
 
     const sinceFilter = since || "1970-01-01T00:00:00.000Z";
+    const changedRows = (table) =>
+      selectAllPages(() =>
+        client.from(table).select("*").eq("user_id", userId).gt("updated_at", sinceFilter)
+      );
 
     const [employersRes, projectsRes, logsRes, settingsRes, timerRes] = await Promise.all([
-      client.from("employers").select("*").eq("user_id", userId).gt("updated_at", sinceFilter),
-      client.from("projects").select("*").eq("user_id", userId).gt("updated_at", sinceFilter),
-      client.from("work_logs").select("*").eq("user_id", userId).gt("updated_at", sinceFilter),
-      client.from("app_settings").select("*").eq("user_id", userId).gt("updated_at", sinceFilter),
+      changedRows("employers"),
+      changedRows("projects"),
+      changedRows("work_logs"),
+      changedRows("app_settings"),
       client.from("timer_state").select("*").eq("user_id", userId).maybeSingle()
     ]);
 
@@ -406,6 +418,26 @@ class SupabaseService {
       appSettings: settingsRes.data || [],
       timerState: timerRes.data || null
     };
+  }
+}
+
+// Supabase returns at most 1000 rows per request (the API's max-rows), so a plain select
+// silently drops everything after the first 1000. Fetch page by page until a short page.
+const PAGE_SIZE = 1000;
+
+async function selectAllPages(buildQuery) {
+  const rows = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await buildQuery()
+      .order("id", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      return { data: null, error };
+    }
+    rows.push(...(data || []));
+    if (!data || data.length < PAGE_SIZE) {
+      return { data: rows, error: null };
+    }
   }
 }
 

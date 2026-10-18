@@ -2,17 +2,20 @@ import {
   compareHebrewDatesDesc,
   getHebrewMonthLabel,
   getMonthKeyFromHebrewDate,
-  isToday
+  isToday,
+  normalizeHebrewDate
 } from "./dateParse.js";
 
 export function groupLogsByDate(logs) {
   const byDate = new Map();
 
   logs.forEach((log) => {
-    if (!byDate.has(log.date)) {
-      byDate.set(log.date, []);
+    // "15/3/2026" and "15.3.2026" are the same day.
+    const key = normalizeHebrewDate(log.date);
+    if (!byDate.has(key)) {
+      byDate.set(key, []);
     }
-    byDate.get(log.date).push(log);
+    byDate.get(key).push(log);
   });
 
   return byDate;

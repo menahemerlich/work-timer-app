@@ -1,3 +1,7 @@
+import { getCurrentRate } from "../../core/utils/employerRates.js";
+import { formatMoney } from "../../core/utils/projectBilling.js";
+import { formatHebrewDateFromInput } from "../../core/utils/dateParse.js";
+
 export class SettingsView {
   constructor() {
     this.employerNameInput = document.getElementById("employerNameInput");
@@ -29,6 +33,37 @@ export class SettingsView {
     }, 2500);
   }
 
+  createRaisesList(employer, onRemoveRaise) {
+    const list = document.createElement("ul");
+    list.className = "employer-raises";
+
+    const base = document.createElement("li");
+    base.className = "employer-raise employer-raise-base";
+    base.textContent = `בסיס: ${employer.hourlyRate === null ? "לא הוגדר" : formatMoney(employer.hourlyRate)}`;
+    list.appendChild(base);
+
+    employer.rateChanges.forEach((change) => {
+      const item = document.createElement("li");
+      item.className = "employer-raise";
+
+      const text = document.createElement("span");
+      text.textContent = `${formatMoney(change.rate)} מ־${formatHebrewDateFromInput(change.from)}`;
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "employer-raise-remove";
+      removeBtn.title = "מחיקת עדכון השכר";
+      removeBtn.setAttribute("aria-label", "מחיקת עדכון השכר");
+      removeBtn.textContent = "✕";
+      removeBtn.addEventListener("click", () => onRemoveRaise?.(employer.id, change.from));
+
+      item.append(text, removeBtn);
+      list.appendChild(item);
+    });
+
+    return list;
+  }
+
   renderEmployers(
     employers,
     {
@@ -38,6 +73,8 @@ export class SettingsView {
       onCancelEdit,
       onDelete,
       onSetHourlyRate,
+      onAddRaise,
+      onRemoveRaise,
       getProjects = () => [],
       getProjectStats = () => null,
       onAddProject,
@@ -111,17 +148,22 @@ export class SettingsView {
         rateRow.innerHTML = `
           <label class="employer-rate-label">₪ לשעה</label>
           <input class="employer-rate-input" type="number" inputmode="decimal" step="0.01" min="0" placeholder="לדוגמה: 75" />
+          <button type="button" class="btn-small btn-raise" title="עדכון שכר מתאריך מסוים">💰 עדכון שכר</button>
         `;
 
         const rateInput = rateRow.querySelector(".employer-rate-input");
-        rateInput.value = employer.hourlyRate ?? "";
+        rateInput.value = getCurrentRate(employer) ?? "";
         rateInput.addEventListener("change", () => {
           const raw = rateInput.value;
           const num = raw === "" ? null : Number(raw);
           onSetHourlyRate?.(employer.id, Number.isFinite(num) ? num : null);
         });
+        rateRow.querySelector(".btn-raise").addEventListener("click", () => onAddRaise?.(employer.id));
 
         nameBlock.appendChild(rateRow);
+        if (employer.rateChanges?.length) {
+          nameBlock.appendChild(this.createRaisesList(employer, onRemoveRaise));
+        }
         nameBlock.appendChild(
           this.createProjectsBlock(employer, {
             projects: getProjects(employer.id),

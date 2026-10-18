@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 const MIGRATION_V1 = `
 CREATE TABLE IF NOT EXISTS employers (
@@ -134,6 +134,12 @@ ALTER TABLE work_logs ADD COLUMN unit_open INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE projects ADD COLUMN unit_singular TEXT;
 `;
 
+// rate_changes: JSON list of raises [{ rate, from: "YYYY-MM-DD" }]. hourly_rate is the
+// base rate that applies before the first raise.
+const MIGRATION_V7 = `
+ALTER TABLE employers ADD COLUMN rate_changes TEXT;
+`;
+
 module.exports = {
   SCHEMA_VERSION,
   MIGRATION_V1,
@@ -141,5 +147,6 @@ module.exports = {
   MIGRATION_V3,
   MIGRATION_V4,
   MIGRATION_V5,
-  MIGRATION_V6
+  MIGRATION_V6,
+  MIGRATION_V7
 };

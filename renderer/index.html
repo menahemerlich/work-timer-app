@@ -196,6 +196,8 @@
               <span id="todayDateLabel" class="today-date-label"></span>
             </div>
 
+            <div id="dailyGoalBox" class="daily-goal-box" hidden></div>
+
             <div id="noLogsMsg" class="empty-state">
               <div class="empty-icon">📝</div>
               <p>אין דוחות להיום</p>
@@ -217,7 +219,12 @@
                 <tbody></tbody>
                 <tfoot>
                   <tr class="summary-row">
-                    <td colspan="7">סה"כ: <span id="totalDuration">00:00:00</span></td>
+                    <td colspan="7">
+                      <div class="today-total-cell">
+                        <span>סה"כ: <span id="totalDuration">00:00:00</span></span>
+                        <span>שכר: <span id="totalPay"></span></span>
+                      </div>
+                    </td>
                   </tr>
                 </tfoot>
               </table>

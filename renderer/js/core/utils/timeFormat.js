@@ -10,6 +10,14 @@ export function formatDuration(ms) {
   return `${h}:${m}:${s}`;
 }
 
+/** Compact "7:05" (hours:minutes) for summaries. */
+export function formatHoursMinutes(ms) {
+  const totalMinutes = Math.floor((ms || 0) / 60000);
+  const h = Math.floor(totalMinutes / 60);
+  const m = String(totalMinutes % 60).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
 export function parseDurationToMs(str) {
   const parts = str.split(":").map(Number);
   if (parts.length !== 3 || parts.some(Number.isNaN)) {

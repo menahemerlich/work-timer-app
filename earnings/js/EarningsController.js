@@ -4,6 +4,11 @@ import {
   getFixedProjectsIncomeForMonth,
   sumUnitIncome
 } from "../../renderer/js/core/utils/projectBilling.js";
+import {
+  computeLogsPay,
+  findEmployerForLog,
+  getRateForDate
+} from "../../renderer/js/core/utils/employerRates.js";
 
 function getLiveElapsedMs(state) {
   if (!state) {
@@ -17,16 +22,6 @@ function getLiveElapsedMs(state) {
   return ms;
 }
 
-function buildRateMap(employers) {
-  const map = new Map();
-  employers.forEach((employer) => {
-    if (employer?.name != null) {
-      map.set(employer.name, employer.hourlyRate ?? null);
-    }
-  });
-  return map;
-}
-
 // Fixed-price and per-unit projects are not paid by the hour.
 function buildNonHourlyProjectIds(projects) {
   return new Set(
@@ -36,40 +31,31 @@ function buildNonHourlyProjectIds(projects) {
   );
 }
 
-function accumulateMonthHours(logs, fixedProjectIds) {
-  const byEmployer = new Map();
-  logs.forEach((log) => {
-    // Fixed-price project time is tracked but not paid by the hour.
-    if (!isInCurrentMonth(log.date) || fixedProjectIds.has(log.projectId)) {
-      return;
-    }
-    const key = log.employerName || UNKNOWN_EMPLOYER;
-    byEmployer.set(key, (byEmployer.get(key) || 0) + (log.durationMs || 0));
-  });
-  return byEmployer;
-}
-
 function computeEarnings({ logs, employers, projects, timerState }) {
-  const rates = buildRateMap(employers);
   const fixedProjectIds = buildNonHourlyProjectIds(projects);
-  const msByEmployer = accumulateMonthHours(logs, fixedProjectIds);
+  const projectsById = new Map((projects || []).map((project) => [project.id, project]));
+
+  // Each hourly log is paid at the employer's rate in effect on its date.
+  const hourlyLogs = logs.filter(
+    (log) => isInCurrentMonth(log.date) && !fixedProjectIds.has(log.projectId)
+  );
 
   const liveMs = getLiveElapsedMs(timerState);
   const isRunning = Boolean(timerState?.isRunning);
   const isLiveFixed = fixedProjectIds.has(timerState?.projectId);
   if (isRunning && liveMs > 0 && !isLiveFixed) {
-    const key = timerState.employerName || UNKNOWN_EMPLOYER;
-    msByEmployer.set(key, (msByEmployer.get(key) || 0) + liveMs);
+    hourlyLogs.push({
+      date: new Date().toLocaleDateString("he-IL"),
+      durationMs: liveMs,
+      employerId: timerState.employerId,
+      employerName: timerState.employerName || UNKNOWN_EMPLOYER
+    });
   }
 
-  let total = 0;
-  let hasAnyRate = false;
-  msByEmployer.forEach((ms, name) => {
-    const rate = rates.get(name);
-    if (rate !== null && rate !== undefined) {
-      hasAnyRate = true;
-      total += (ms / 3600000) * rate;
-    }
+  let total = computeLogsPay(hourlyLogs, { employers, projectsById }).hourly;
+  let hasAnyRate = hourlyLogs.some((log) => {
+    const rate = getRateForDate(findEmployerForLog(log, employers), log.date);
+    return rate !== null && rate !== undefined;
   });
 
   // Fixed-price projects add their price in the month they were created.
@@ -80,7 +66,6 @@ function computeEarnings({ logs, employers, projects, timerState }) {
   });
 
   // Per-unit projects: units of this month's logs plus the running session.
-  const projectsById = new Map((projects || []).map((project) => [project.id, project]));
   const unitLogs = logs.filter((log) => isInCurrentMonth(log.date));
   if (isRunning && timerState?.projectId && timerState.unitCount) {
     unitLogs.push({ projectId: timerState.projectId, unitCount: timerState.unitCount });

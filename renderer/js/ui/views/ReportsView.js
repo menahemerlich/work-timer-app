@@ -28,6 +28,8 @@ export class ReportsView {
     this.todayDateLabel = document.getElementById("todayDateLabel");
     this.logsArchive = document.getElementById("logsArchive");
     this.totalDuration = document.getElementById("totalDuration");
+    this.totalPay = document.getElementById("totalPay");
+    this.dailyGoalBox = document.getElementById("dailyGoalBox");
     this.monthlySummaryBody = document.getElementById("monthlySummaryBody");
     this.monthlySummaryBox = document.getElementById("monthlySummaryBox");
     this.monthlyGoalBox = document.getElementById("monthlyGoalBox");
@@ -225,7 +227,20 @@ export class ReportsView {
     return table;
   }
 
-  createDayFolder(dateStr, logs, { expanded, onToggle, handlers, nested = false }) {
+  /** "⏱ 7:05 · ₪532.00" pinned to the left end of a folder bubble. */
+  folderTotalsHtml(summary) {
+    if (!summary) {
+      return "";
+    }
+    return `
+      <span class="folder-totals" title="סה&quot;כ שעות ושכר">
+        <span class="folder-totals-hours">⏱ ${summary.hoursStr}</span>
+        <span class="folder-totals-pay">${summary.payStr}</span>
+      </span>
+    `;
+  }
+
+  createDayFolder(dateStr, logs, { expanded, onToggle, handlers, nested = false, summary = null }) {
     const wrap = document.createElement("div");
     wrap.className = `log-folder log-folder-day${nested ? " log-folder-day-nested" : ""}`;
 
@@ -237,6 +252,7 @@ export class ReportsView {
       <span class="folder-icon" aria-hidden="true">📁</span>
       <span class="folder-label">${dateStr}</span>
       <span class="folder-meta">${logs.length} דוחות</span>
+      ${this.folderTotalsHtml(summary)}
       <span class="folder-chevron" aria-hidden="true"></span>
     `;
 
@@ -270,8 +286,12 @@ export class ReportsView {
     return wrap;
   }
 
-  createMonthFolder({ monthKey, monthLabel, days }, { expanded, onToggle, handlers, expandedDays, onToggleDay }) {
+  createMonthFolder(
+    { monthKey, monthLabel, days },
+    { expanded, onToggle, handlers, expandedDays, onToggleDay, summarizeDay, summarizeMonth }
+  ) {
     const totalLogs = days.reduce((sum, day) => sum + day.logs.length, 0);
+    const summary = summarizeMonth?.(monthKey, days.flatMap((day) => day.logs)) || null;
     const wrap = document.createElement("div");
     wrap.className = "log-folder log-folder-month";
 
@@ -283,6 +303,7 @@ export class ReportsView {
       <span class="folder-icon" aria-hidden="true">📂</span>
       <span class="folder-label">${monthLabel}</span>
       <span class="folder-meta">${totalLogs} דוחות</span>
+      ${this.folderTotalsHtml(summary)}
       <span class="folder-chevron" aria-hidden="true"></span>
     `;
 
@@ -305,7 +326,8 @@ export class ReportsView {
           expanded: expandedDays.has(day.dateStr),
           onToggle: onToggleDay,
           handlers,
-          nested: true
+          nested: true,
+          summary: summarizeDay?.(day.dateStr, day.logs) || null
         })
       );
     });
@@ -338,7 +360,9 @@ export class ReportsView {
     expandedMonths,
     onToggleDay,
     onToggleMonth,
-    handlers
+    handlers,
+    summarizeDay = null,
+    summarizeMonth = null
   }) {
     this.todayDateLabel.textContent = todayStr;
     this.logsTableBody.innerHTML = "";
@@ -394,7 +418,8 @@ export class ReportsView {
           this.createDayFolder(item.dateStr, item.logs, {
             expanded: expandedDays.has(item.dateStr),
             onToggle: onToggleDay,
-            handlers
+            handlers,
+            summary: summarizeDay?.(item.dateStr, item.logs) || null
           })
         );
       });
@@ -421,7 +446,9 @@ export class ReportsView {
             onToggle: onToggleMonth,
             handlers,
             expandedDays,
-            onToggleDay
+            onToggleDay,
+            summarizeDay,
+            summarizeMonth
           })
         );
       });
@@ -431,8 +458,38 @@ export class ReportsView {
     }
   }
 
-  renderTotal(totalStr) {
+  renderTotal(totalStr, payStr = null) {
     this.totalDuration.textContent = totalStr;
+    if (this.totalPay) {
+      this.totalPay.textContent = payStr || "";
+    }
+  }
+
+  renderDailyGoal(progress) {
+    if (!this.dailyGoalBox) {
+      return;
+    }
+    if (!progress) {
+      this.dailyGoalBox.hidden = true;
+      this.dailyGoalBox.innerHTML = "";
+      return;
+    }
+
+    const pct = Math.max(0, Math.min(100, progress.percent || 0));
+    this.dailyGoalBox.hidden = false;
+    this.dailyGoalBox.innerHTML = `
+      <div class="goal-box">
+        <div class="goal-title">יעד יומי</div>
+        <div class="goal-metrics">
+          <span><strong>${progress.actualHoursStr}</strong> בפועל</span>
+          <span>מתוך <strong>${progress.expectedHoursStr}</strong></span>
+          <span class="goal-pct"><strong>${progress.percentStr}</strong></span>
+        </div>
+        <div class="goal-bar" aria-hidden="true">
+          <div class="goal-bar-fill" style="width:${pct}%"></div>
+        </div>
+      </div>
+    `;
   }
 
   renderMonthOptions(options, selectedKey) {

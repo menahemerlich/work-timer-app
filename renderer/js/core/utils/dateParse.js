@@ -1,10 +1,29 @@
+/**
+ * Parses "d.m.yyyy". Also accepts "/" or "-" separators, "yyyy-mm-dd", and stray
+ * invisible characters (e.g. RTL marks), so logs saved in another format still show.
+ */
 export function parseHebrewDate(dateStr) {
-  const [day, month, year] = dateStr.split(".").map(Number);
-  if (!day || !month || !year) {
+  const parts = String(dateStr ?? "")
+    .replace(/[^\d./-]/g, "")
+    .split(/[./-]/)
+    .filter(Boolean)
+    .map(Number);
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const [day, month, year] = parts[0] > 999 ? [parts[2], parts[1], parts[0]] : parts;
+  if (!day || !month || !year || month > 12 || day > 31) {
     return null;
   }
 
   return { day, month, year, date: new Date(year, month - 1, day) };
+}
+
+/** The canonical "d.m.yyyy" form of a date string, or the input when it can't be parsed. */
+export function normalizeHebrewDate(dateStr) {
+  const parsed = parseHebrewDate(dateStr);
+  return parsed ? `${parsed.day}.${parsed.month}.${parsed.year}` : dateStr;
 }
 
 export function isInCurrentMonth(dateStr, referenceDate = new Date()) {

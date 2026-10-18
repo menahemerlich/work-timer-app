@@ -1,3 +1,5 @@
+const FULL_REPULL_META_KEY = "full_repull_paged_at";
+
 class SyncEngine {
   constructor({ localDb, supabase, syncQueue, onStatusChange }) {
     this.localDb = localDb;
@@ -177,6 +179,7 @@ class SyncEngine {
         createdAt: local.createdAt,
         color: local.color,
         hourlyRate: local.hourlyRate ?? null,
+        rateChanges: local.rateChanges,
         updatedAt: local.updatedAt || new Date().toISOString()
       },
       "upsert"
@@ -203,7 +206,14 @@ class SyncEngine {
     this.notifyStatus();
 
     try {
-      const since = this.localDb.getMeta("last_pull_at", "1970-01-01T00:00:00.000Z");
+      // Pulls before paging was added were capped at 1000 rows, so rows past the cap were
+      // never pulled. Pull everything once (merging by updated_at, nothing is deleted).
+      const needsFullRepull = !this.localDb.getMeta(FULL_REPULL_META_KEY);
+      const since = needsFullRepull
+        ? "1970-01-01T00:00:00.000Z"
+        : this.localDb.getMeta("last_pull_at", "1970-01-01T00:00:00.000Z");
+      // Taken before the query so rows changed while it runs are picked up next time.
+      const pullStartedAt = new Date().toISOString();
       const remote = await this.supabase.pullChanges(userId, since);
 
       remote.employers.forEach((row) => {
@@ -218,7 +228,8 @@ class SyncEngine {
                 name: row.name,
                 createdAt: row.created_at,
                 color: row.color,
-                hourlyRate: row.hourly_rate ?? null
+                hourlyRate: row.hourly_rate ?? null,
+                rateChanges: row.rate_changes ?? []
               },
               { enqueue: false }
             );
@@ -325,7 +336,8 @@ class SyncEngine {
         );
       }
 
-      this.localDb.setMeta("last_pull_at", new Date().toISOString());
+      this.localDb.setMeta("last_pull_at", pullStartedAt);
+      this.localDb.setMeta(FULL_REPULL_META_KEY, pullStartedAt);
     } catch (error) {
       this.lastError = error.message;
       console.error("Pull remote failed:", error.message);

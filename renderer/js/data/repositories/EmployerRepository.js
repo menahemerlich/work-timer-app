@@ -1,4 +1,5 @@
 import { Employer } from "../../core/models/Employer.js";
+import { getRateChangeIndexForIso, todayIsoDate } from "../../core/utils/employerRates.js";
 
 
 
@@ -187,7 +188,9 @@ export class SettingsRepository {
 
         color: employer.color || null,
 
-        hourlyRate: employer.hourlyRate ?? null
+        hourlyRate: employer.hourlyRate ?? null,
+
+        rateChanges: employer.rateChanges || []
 
       });
       window.dispatchEvent(new CustomEvent("settings:changed"));
@@ -441,10 +444,53 @@ export class EmployerRepository {
       return null;
     }
 
-    employer.hourlyRate = hourlyRate;
+    // The rate box shows the rate in effect today, so editing it fixes that rate:
+    // the latest raise already in effect, or the base rate when there is none.
+    const index = getRateChangeIndexForIso(employer, todayIsoDate());
+    if (index >= 0 && hourlyRate !== null) {
+      employer.rateChanges = employer.rateChanges.map((change, i) =>
+        i === index ? { ...change, rate: hourlyRate } : change
+      );
+    } else {
+      employer.hourlyRate = hourlyRate;
+    }
+    return this.saveEmployer(settings, employer);
+  }
+
+  /** Adds a raise that applies from the given ISO date on (replaces a raise on the same date). */
+  async addRaise(id, { rate, from }) {
+    const settings = this.settingsRepository.getSettings();
+    const employer = settings.employers.find((item) => item.id === id);
+    if (!employer) {
+      return null;
+    }
+
+    employer.rateChanges = [
+      ...employer.rateChanges.filter((change) => change.from !== from),
+      { rate, from }
+    ];
+    return this.saveEmployer(settings, employer);
+  }
+
+  async removeRaise(id, from) {
+    const settings = this.settingsRepository.getSettings();
+    const employer = settings.employers.find((item) => item.id === id);
+    if (!employer) {
+      return null;
+    }
+
+    employer.rateChanges = employer.rateChanges.filter((change) => change.from !== from);
+    return this.saveEmployer(settings, employer);
+  }
+
+  async saveEmployer(settings, employer) {
+    // Re-create so rateChanges are normalized (sorted, validated).
+    const index = settings.employers.indexOf(employer);
+    const normalized = new Employer(employer);
+    settings.employers[index] = normalized;
     this.settingsRepository.applyCache(settings);
-    await this.settingsRepository.persistEmployer(employer);
-    return employer;
+    await this.settingsRepository.persistEmployer(normalized);
+    return normalized;
   }
 
 

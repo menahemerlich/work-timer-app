@@ -6,7 +6,8 @@ import {
   parseHebrewDate,
   getHebrewMonthLabel
 } from "../../core/utils/dateParse.js";
-import { formatDuration } from "../../core/utils/timeFormat.js";
+import { formatDuration, formatHoursMinutes } from "../../core/utils/timeFormat.js";
+import { computeLogsPay, findEmployerForLog, getRateForDate } from "../../core/utils/employerRates.js";
 import { generateId } from "../../core/utils/uuid.js";
 import { resolveEmployerColor } from "../../core/utils/employerColors.js";
 import { buildLogsArchiveStructure } from "../../core/utils/logGrouping.js";
@@ -14,6 +15,7 @@ import { confirmDialog } from "../components/ConfirmDialog.js";
 import {
   effectiveHourlyRate,
   formatMoney,
+  getFixedProjectsIncomeForDate,
   getFixedProjectsIncomeForMonth,
   sumMsByProject
 } from "../../core/utils/projectBilling.js";
@@ -224,6 +226,8 @@ export class ReportsController {
 
     this.view.renderGroupedLogs({
       ...archiveStructure,
+      summarizeDay: (dateStr, logs) => this.summarizeDay(dateStr, logs, reportFilters),
+      summarizeMonth: (monthKey, logs) => this.summarizeMonth(monthKey, logs, reportFilters),
       expandedDays: this.expandedDays,
       expandedMonths: this.expandedMonths,
       onToggleDay: (dateStr, isOpen) => {
@@ -244,7 +248,9 @@ export class ReportsController {
     });
 
     const totalMs = this.reportService.getTotalDurationMs(archiveStructure.todayLogs);
-    this.view.renderTotal(formatDuration(totalMs));
+    const todaySummary = this.summarizeDay(archiveStructure.todayStr, archiveStructure.todayLogs, reportFilters);
+    this.view.renderTotal(formatDuration(totalMs), todaySummary.payStr);
+    this.view.renderDailyGoal(this.computeDailyGoalProgress(totalMs));
 
     const monthOptions = this.buildMonthOptions(allLogs);
     if (!monthOptions.some((opt) => opt.key === this.selectedMonthKey)) {
@@ -358,6 +364,70 @@ export class ReportsController {
     };
   }
 
+  /** Today's hours against the daily target (Sunday–Thursday only, like the monthly goal). */
+  computeDailyGoalProgress(totalMs, referenceDate = new Date()) {
+    const hoursPerDay = this.employerRepo.settingsRepository.getSettings().monthlyTargetHoursPerDay ?? null;
+    if (!hoursPerDay || hoursPerDay <= 0 || referenceDate.getDay() > 4) {
+      return null;
+    }
+
+    const actualHours = totalMs / 3600000;
+    const percent = (actualHours / hoursPerDay) * 100;
+    const fmt = (n) =>
+      Number(n || 0).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+    return {
+      percent,
+      actualHoursStr: `${formatHoursMinutes(totalMs)} שעות`,
+      expectedHoursStr: `${fmt(hoursPerDay)} שעות`,
+      percentStr: `${Math.round(percent)}%`
+    };
+  }
+
+  getPayContext() {
+    return {
+      employers: this.employerRepo.getAll(),
+      projectsById: { get: (id) => this.projectRepo?.getById(id, { includeDeleted: true }) }
+    };
+  }
+
+  /** Active employers' fixed-price projects that pass the given employer filter. */
+  getFixedIncomeProjects(selectFn, filters) {
+    const activeEmployerIds = new Set(this.employerRepo.getAll().map((employer) => employer.id));
+    return selectFn(this.projectRepo?.getAll() || [], activeEmployerIds).filter((project) =>
+      this.projectMatchesEmployerFilter(project, filters)
+    );
+  }
+
+  /**
+   * Hours (all of them, also time that isn't paid by the hour) and pay of one day:
+   * hourly at that day's rate + units + fixed-price projects created that day.
+   */
+  summarizeDay(dateStr, logs, filters) {
+    const ms = this.reportService.getTotalDurationMs(logs);
+    const fixed = this.getFixedIncomeProjects(
+      (projects, ids) => getFixedProjectsIncomeForDate(projects, dateStr, ids),
+      filters
+    );
+    const pay =
+      computeLogsPay(logs, this.getPayContext()).total +
+      fixed.reduce((sum, project) => sum + project.fixedPrice, 0);
+    return { hoursStr: formatHoursMinutes(ms), payStr: formatMoney(pay) };
+  }
+
+  /** Same as summarizeDay for a whole month; matches the pay calculator's total. */
+  summarizeMonth(monthKey, logs, filters) {
+    const ms = this.reportService.getTotalDurationMs(logs);
+    const fixed = this.getFixedIncomeProjects(
+      (projects, ids) => getFixedProjectsIncomeForMonth(projects, this.resolveReferenceDate(monthKey), ids),
+      filters
+    );
+    const pay =
+      computeLogsPay(logs, this.getPayContext()).total +
+      fixed.reduce((sum, project) => sum + project.fixedPrice, 0);
+    return { hoursStr: formatHoursMinutes(ms), payStr: formatMoney(pay) };
+  }
+
   projectMatchesEmployerFilter(project, filters) {
     const { employerFilters = [], totalOptions = employerFilters.length } = filters || {};
     if (!this.shouldFilterByEmployers(employerFilters, totalOptions)) {
@@ -370,7 +440,6 @@ export class ReportsController {
 
   openMonthlyEarningsModal(monthLogs, referenceDate = new Date(), monthlyFilters = null) {
     const employers = this.employerRepo.getAll();
-    const byName = new Map(employers.map((e) => [e.name, e]));
 
     // Time on fixed-price and per-unit projects is tracked but not paid by the hour.
     const isNonHourly = (log) => Boolean(this.projectRepo?.isNonHourlyLog(log));
@@ -379,23 +448,37 @@ export class ReportsController {
       (log) => this.projectRepo?.getById(log.projectId, { includeDeleted: true })?.isFixed
     );
 
+    // Each log is paid at the rate in effect on its date (raises apply from their date on).
     const totals = new Map();
     hourlyLogs.forEach((log) => {
       const key = log.employerName || UNKNOWN_EMPLOYER;
-      totals.set(key, (totals.get(key) || 0) + (log.durationMs || 0));
+      if (!totals.has(key)) {
+        totals.set(key, { ms: 0, amount: 0, rates: new Set() });
+      }
+      const entry = totals.get(key);
+      const ms = log.durationMs || 0;
+      const rate = getRateForDate(findEmployerForLog(log, employers), log.date);
+      entry.ms += ms;
+      if (rate !== null && rate !== undefined) {
+        entry.amount += (ms / 3600000) * rate;
+        entry.rates.add(rate);
+      }
     });
 
     const rows = Array.from(totals.entries())
-      .map(([name, ms]) => {
-        const hours = ms / 3600000;
-        const rate = byName.get(name)?.hourlyRate ?? null;
-        const amount = rate !== null ? hours * rate : null;
-        return { name, hours, rate, amount };
+      .map(([name, { ms, amount, rates }]) => {
+        const rateList = Array.from(rates).sort((a, b) => a - b);
+        return {
+          name,
+          hours: ms / 3600000,
+          rates: rateList,
+          amount: rateList.length ? amount : null
+        };
       })
       .sort((a, b) => a.name.localeCompare(b.name, "he"));
 
     const totalAmount = rows.reduce((sum, r) => sum + (r.amount || 0), 0);
-    const hasAnyRate = rows.some((r) => r.rate !== null);
+    const hasAnyRate = rows.some((r) => r.rates.length > 0);
 
     const formatHours = (n) =>
       Number(n || 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -487,7 +570,9 @@ export class ReportsController {
           <tbody>
             ${rows
               .map((r) => {
-                const rateCell = r.rate === null ? "—" : formatMoney(r.rate).replace("₪", "");
+                const rateCell = r.rates.length
+                  ? r.rates.map((rate) => formatMoney(rate).replace("₪", "")).join(" → ")
+                  : "—";
                 const amountCell = r.amount === null ? "—" : formatMoney(r.amount);
                 return `
                   <tr>

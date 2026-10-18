@@ -3,9 +3,11 @@ import { Project, BILLING_TYPES } from "../../core/models/Project.js";
 import { generateId } from "../../core/utils/uuid.js";
 import {
   describeProjectStats,
+  formatMoney,
   sumMsByProject,
   sumUnitsByProject
 } from "../../core/utils/projectBilling.js";
+import { getCurrentRate, todayIsoDate } from "../../core/utils/employerRates.js";
 import { confirmDialog, refocusSettingsInput } from "../components/ConfirmDialog.js";
 import { restoreFieldFocus } from "../components/FocusGuard.js";
 
@@ -118,6 +120,10 @@ export class SettingsController {
       },
       onSetHourlyRate: (id, rate) => {
         void this.handleSetHourlyRate(id, rate);
+      },
+      onAddRaise: (id) => this.handleAddRaise(id),
+      onRemoveRaise: (id, from) => {
+        void this.handleRemoveRaise(id, from);
       },
       getProjects: (employerId) => this.projectRepo?.getByEmployer(employerId) || [],
       getProjectStats: (project) =>
@@ -343,6 +349,69 @@ export class SettingsController {
       this.onEmployersChanged?.();
     } catch (error) {
       this.view.showFeedback(error.message || "עדכון תעריף נכשל.", "error");
+    }
+  }
+
+  handleAddRaise(id) {
+    const employer = this.employerRepo.getById(id);
+    if (!employer || !this.modal) {
+      return;
+    }
+
+    const current = getCurrentRate(employer);
+    this.modal.show({
+      title: `💰 עדכון שכר — ${employer.name}`,
+      bodyHtml: `
+        <p class="modal-hint">התעריף החדש ייחשב רק לדוחות מהתאריך שנבחר והלאה. דוחות קודמים נשארים בתעריף הקודם.${
+          current === null ? "" : ` תעריף נוכחי: ${formatMoney(current)}.`
+        }</p>
+        <label class="field-label" for="raiseRate">₪ לשעה (חדש)</label>
+        <input id="raiseRate" type="number" inputmode="decimal" step="0.01" min="0" class="field-input" placeholder="לדוגמה: 80" />
+        <label class="field-label" for="raiseFrom">החל מתאריך</label>
+        <input id="raiseFrom" type="date" class="field-input" value="${todayIsoDate()}" />
+      `,
+      confirmText: "שמירה",
+      onConfirm: () => {
+        const raw = document.getElementById("raiseRate")?.value ?? "";
+        const rate = Number(raw);
+        const from = document.getElementById("raiseFrom")?.value || "";
+        if (raw === "" || !Number.isFinite(rate) || rate < 0) {
+          this.modal.showFeedback("יש להזין תעריף חוקי.");
+          return;
+        }
+        if (!from) {
+          this.modal.showFeedback("יש לבחור תאריך.");
+          return;
+        }
+        void this.saveRaise(id, { rate, from });
+      }
+    });
+  }
+
+  async saveRaise(id, raise) {
+    try {
+      await this.employerRepo.addRaise(id, raise);
+      this.modal.hide();
+      this.refresh();
+      this.view.showFeedback("עדכון השכר נשמר.");
+      this.onEmployersChanged?.();
+    } catch (error) {
+      this.modal.showFeedback(error.message || "שמירת עדכון השכר נכשלה.");
+    }
+  }
+
+  async handleRemoveRaise(id, from) {
+    if (!(await confirmDialog("למחוק את עדכון השכר? הדוחות מהתאריך הזה יחושבו לפי התעריף הקודם."))) {
+      return;
+    }
+
+    try {
+      await this.employerRepo.removeRaise(id, from);
+      this.refresh();
+      this.view.showFeedback("עדכון השכר נמחק.");
+      this.onEmployersChanged?.();
+    } catch (error) {
+      this.view.showFeedback(error.message || "מחיקת עדכון השכר נכשלה.", "error");
     }
   }
 

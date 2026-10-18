@@ -6,7 +6,8 @@ const {
   MIGRATION_V3,
   MIGRATION_V4,
   MIGRATION_V5,
-  MIGRATION_V6
+  MIGRATION_V6,
+  MIGRATION_V7
 } = require("./schema");
 
 function nowIso() {
@@ -66,6 +67,12 @@ class LocalDatabaseService {
     if (row.version < 6) {
       this.db.exec(MIGRATION_V6);
       this.db.prepare("UPDATE schema_version SET version = ?").run(6);
+    }
+
+    row = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() || row;
+    if (row.version < 7) {
+      this.db.exec(MIGRATION_V7);
+      this.db.prepare("UPDATE schema_version SET version = ?").run(7);
     }
   }
 
@@ -215,12 +222,13 @@ class LocalDatabaseService {
 
     this.db
       .prepare(
-        `INSERT INTO employers (id, name, created_at, color, hourly_rate, updated_at, deleted_at)
-         VALUES (@id, @name, @created_at, @color, @hourly_rate, @updated_at, NULL)
+        `INSERT INTO employers (id, name, created_at, color, hourly_rate, rate_changes, updated_at, deleted_at)
+         VALUES (@id, @name, @created_at, @color, @hourly_rate, @rate_changes, @updated_at, NULL)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name,
            color = excluded.color,
            hourly_rate = excluded.hourly_rate,
+           rate_changes = excluded.rate_changes,
            updated_at = excluded.updated_at,
            deleted_at = NULL`
       )
@@ -230,6 +238,7 @@ class LocalDatabaseService {
         created_at: employer.createdAt || ts,
         color: employer.color || null,
         hourly_rate: employer.hourlyRate ?? null,
+        rate_changes: JSON.stringify(normalizeRateChanges(employer.rateChanges)),
         updated_at: ts
       });
 
@@ -714,6 +723,7 @@ class LocalDatabaseService {
         createdAt: employer.createdAt,
         color: employer.color,
         hourlyRate: employer.hourlyRate ?? null,
+        rateChanges: employer.rateChanges,
         updatedAt: employer.updatedAt || ts
       });
     });
@@ -778,9 +788,28 @@ function mapEmployerRow(row) {
     createdAt: row.created_at,
     color: row.color,
     hourlyRate: row.hourly_rate ?? null,
+    rateChanges: parseRateChanges(row.rate_changes),
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at
   };
+}
+
+function normalizeRateChanges(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((item) => ({ rate: Number(item?.rate), from: String(item?.from || "") }))
+    .filter((item) => Number.isFinite(item.rate) && item.rate >= 0 && /^\d{4}-\d{2}-\d{2}$/.test(item.from))
+    .sort((a, b) => a.from.localeCompare(b.from));
+}
+
+function parseRateChanges(value) {
+  if (!value) {
+    return [];
+  }
+  try {
+    return normalizeRateChanges(JSON.parse(value));
+  } catch {
+    return [];
+  }
 }
 
 function normalizeBillingType(value) {
