@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="styles/reports.css" />
   <link rel="stylesheet" href="styles/settings.css" />
   <link rel="stylesheet" href="styles/modal.css" />
+  <link rel="stylesheet" href="styles/charts.css" />
 </head>
 <body>
   <div class="bg-blobs" aria-hidden="true">
@@ -55,6 +56,9 @@
           </button>
           <button type="button" class="tab-btn" data-tab="reports">
             <span class="tab-icon">📊</span> דוחות
+          </button>
+          <button type="button" class="tab-btn" data-tab="charts">
+            <span class="tab-icon">📈</span> גרפים
           </button>
           <button type="button" class="tab-btn" data-tab="settings">
             <span class="tab-icon">⚙️</span> הגדרות
@@ -283,6 +287,58 @@
 
           <input type="file" id="fileInput" accept=".csv" hidden />
           <input type="file" id="backupInput" accept=".json" hidden />
+        </section>
+
+        <section class="tab-panel" data-panel="charts">
+          <div class="panel-card">
+            <div class="charts-card-header">
+              <div>
+                <div class="section-title">💰 הכנסה חודשית לפי מעסיק</div>
+                <p class="charts-desc">כמה הרווחת בכל חודש, וכמה מזה הגיע מכל מעסיק</p>
+              </div>
+              <div class="charts-card-actions">
+                <button type="button" class="btn-soft btn-lavender" data-chart-table="chartIncomeTable">טבלה</button>
+              </div>
+            </div>
+            <div class="chart-legend" id="chartIncomeLegend"></div>
+            <div class="chart-box" id="chartIncome"><div class="chart-tip"></div></div>
+            <div class="chart-table-wrap" id="chartIncomeTable" hidden></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="charts-card-header">
+              <div>
+                <div class="section-title">🎯 התקדמות ליעד החודשי</div>
+                <p class="charts-desc">שעות שנצברו מתחילת החודש, מול הקצב הנדרש ביעד היומי בימי א׳–ה׳</p>
+              </div>
+              <div class="charts-card-actions">
+                <select id="chartsProgressMonth" class="field-input" aria-label="חודש"></select>
+                <button type="button" class="btn-soft btn-lavender" data-chart-table="chartProgressTable">טבלה</button>
+              </div>
+            </div>
+            <div class="chart-kpis" id="chartProgressKpis"></div>
+            <div class="chart-legend">
+              <span><i class="chart-swatch line"></i>שעות בפועל</span>
+              <span><i class="chart-swatch dash"></i>הקצב ליעד</span>
+            </div>
+            <div class="chart-box" id="chartProgress"><div class="chart-tip"></div></div>
+            <div class="chart-table-wrap" id="chartProgressTable" hidden></div>
+          </div>
+
+          <div class="panel-card">
+            <div class="charts-card-header">
+              <div>
+                <div class="section-title">🕒 מתי אתה עובד</div>
+                <p class="charts-desc">סך השעות לפי יום בשבוע ושעה ביום, על כל התקופה</p>
+              </div>
+              <div class="charts-card-actions">
+                <button type="button" class="btn-soft btn-lavender" data-chart-table="chartHeatmapTable">טבלה</button>
+              </div>
+            </div>
+            <div class="chart-legend" id="chartHeatmapLegend"></div>
+            <div class="chart-box" id="chartHeatmap"><div class="chart-tip"></div></div>
+            <div class="chart-table-wrap" id="chartHeatmapTable" hidden></div>
+          </div>
         </section>
 
         <section class="tab-panel" data-panel="settings">

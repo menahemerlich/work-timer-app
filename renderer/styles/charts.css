@@ -1,0 +1,228 @@
+/* Charts tab. Series colors are a color-blind-checked categorical palette, assigned by the
+   employer's place in the employer list; the heatmap uses one hue from light to dark. */
+:root {
+  --chart-s1: #2a78d6;
+  --chart-s2: #eb6834;
+  --chart-s3: #1baf7a;
+  --chart-s4: #eda100;
+  --chart-s5: #e87ba4;
+  --chart-s6: #008300;
+  --chart-s7: #4a3aa7;
+  --chart-s8: #e34948;
+  --chart-other: #a8a3b5;
+  --chart-grid: rgba(139, 131, 148, 0.18);
+  --chart-axis: rgba(139, 131, 148, 0.45);
+  --chart-target: #8b8394;
+  --chart-actual: #8b5cf6;
+  --heat-0: #f1f5fb;
+  --heat-1: #c6dbf5;
+  --heat-2: #8db8ea;
+  --heat-3: #4f8fdc;
+  --heat-4: #2a78d6;
+  --heat-5: #1a4f94;
+}
+
+.charts-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.charts-card-header .section-title {
+  margin-bottom: 2px;
+}
+
+.charts-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.charts-card-actions select {
+  min-width: 150px;
+  padding: 6px 10px;
+}
+
+.charts-desc,
+.charts-note {
+  color: var(--text-soft);
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.charts-note {
+  margin: 8px 0 0;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.chart-swatch.line {
+  height: 3px;
+  width: 16px;
+  border-radius: 2px;
+  background: var(--chart-actual);
+}
+
+.chart-swatch.dash {
+  height: 0;
+  width: 16px;
+  border-radius: 0;
+  border-top: 2px dashed var(--chart-target);
+}
+
+.chart-box {
+  position: relative;
+  width: 100%;
+}
+
+.chart-box svg {
+  direction: ltr;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chart-box svg text {
+  fill: var(--text-soft);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.chart-box svg text.chart-value {
+  fill: var(--text);
+  font-weight: 600;
+}
+
+.chart-grid {
+  stroke: var(--chart-grid);
+}
+
+.chart-axis {
+  stroke: var(--chart-axis);
+}
+
+.chart-target-line {
+  fill: none;
+  stroke: var(--chart-target);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+}
+
+.chart-actual-line {
+  fill: none;
+  stroke: var(--chart-actual);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.chart-actual-dot {
+  fill: var(--chart-actual);
+  stroke: white;
+  stroke-width: 2;
+}
+
+.chart-cell-hover {
+  stroke: var(--text);
+  stroke-width: 1.5;
+}
+
+.chart-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  background: #3b3549;
+  color: white;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 7px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.chart-tip.visible {
+  opacity: 1;
+}
+
+.chart-tip b {
+  font-weight: 600;
+}
+
+.chart-empty {
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 14px;
+  padding: 28px 12px;
+  margin: 0;
+}
+
+.chart-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin: 2px 0 10px;
+}
+
+.chart-kpi-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-kpi-label {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.chart-table-wrap {
+  overflow-x: auto;
+}
+
+.chart-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.chart-table th,
+.chart-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--chart-grid);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-table th {
+  color: var(--text-soft);
+  font-weight: 600;
+}

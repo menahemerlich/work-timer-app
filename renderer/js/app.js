@@ -5,6 +5,7 @@ import { ProjectRepository } from "./data/repositories/ProjectRepository.js";
 import { DataMigrator } from "./data/migration/DataMigrator.js";
 import { TimerService } from "./core/services/TimerService.js";
 import { ReportSummaryService } from "./core/services/ReportSummaryService.js";
+import { ChartDataService } from "./core/services/ChartDataService.js";
 import { LogValidationService } from "./core/services/LogValidationService.js";
 import { CsvExporter } from "./export/CsvExporter.js";
 import { CsvImporter } from "./export/CsvImporter.js";
@@ -21,6 +22,7 @@ import { ReportsController } from "./ui/controllers/ReportsController.js";
 import { SettingsController } from "./ui/controllers/SettingsController.js";
 import { AuthController } from "./ui/controllers/AuthController.js";
 import { SyncStatusController } from "./ui/controllers/SyncStatusController.js";
+import { ChartsController } from "./ui/controllers/ChartsController.js";
 
 const settingsRepo = new SettingsRepository();
 const employerRepo = new EmployerRepository(settingsRepo);
@@ -99,6 +101,13 @@ async function startApp() {
     }
   });
 
+  const chartsController = new ChartsController({
+    logRepo,
+    employerRepo,
+    projectRepo,
+    chartDataService: new ChartDataService()
+  });
+
   const authController = new AuthController({ modal });
   const syncStatusController = new SyncStatusController();
 
@@ -113,7 +122,7 @@ async function startApp() {
 
   initFocusGuard();
   initConfirmDialog(modal);
-  tabNav.init();
+  tabNav.init((tabId) => chartsController.onTabChange(tabId));
 
   document.getElementById("windowMinimizeBtn")?.addEventListener("click", () => {
     window.electronAPI?.window?.minimize();
@@ -127,6 +136,7 @@ async function startApp() {
   safeInit("הגדרות", () => settingsController.init());
   safeInit("דוחות", () => reportsController.init());
   safeInit("טיימר", () => timerController.init());
+  safeInit("גרפים", () => chartsController.init());
 }
 
 startApp();
