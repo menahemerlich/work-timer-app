@@ -10,6 +10,18 @@ function registerWindowHandlers() {
     BrowserWindow.fromWebContents(event.sender)?.close();
   });
 
+  ipcMain.on("window:show", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) {
+      return;
+    }
+    if (win.isMinimized()) {
+      win.restore();
+    }
+    win.show();
+    win.focus();
+  });
+
   ipcMain.on("window:setCorner", (event, corner) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed()) {

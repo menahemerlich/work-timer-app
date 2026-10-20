@@ -6,7 +6,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   window: {
     minimize: () => ipcRenderer.send("window:minimize"),
     close: () => ipcRenderer.send("window:close"),
-    setCorner: (corner) => ipcRenderer.send("window:setCorner", corner)
+    setCorner: (corner) => ipcRenderer.send("window:setCorner", corner),
+    show: () => ipcRenderer.send("window:show"),
+    onTaskbarStop: (callback) => {
+      const listener = () => callback();
+      ipcRenderer.on("taskbar:stop", listener);
+      return () => ipcRenderer.removeListener("taskbar:stop", listener);
+    }
   },
 
   earnings: {

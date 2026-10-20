@@ -9,6 +9,16 @@ export class AuthController {
   init() {
     this.authBtn?.addEventListener("click", () => this.openAuthModal());
     this.refresh();
+
+    // The saved session is restored asynchronously at startup, often after the first
+    // refresh() above. Sync status carries hasSession, so refresh whenever it changes.
+    let lastHasSession = null;
+    window.electronAPI?.sync?.onStatus?.((status) => {
+      if (status.hasSession !== lastHasSession) {
+        lastHasSession = status.hasSession;
+        this.refresh();
+      }
+    });
   }
 
   async refresh() {

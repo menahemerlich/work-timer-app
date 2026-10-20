@@ -25,4 +25,8 @@ function createMainWindow() {
   return mainWindow;
 }
 
-module.exports = { createMainWindow };
+function getMainWindow() {
+  return mainWindow;
+}
+
+module.exports = { createMainWindow, getMainWindow };

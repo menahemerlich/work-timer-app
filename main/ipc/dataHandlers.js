@@ -1,5 +1,6 @@
 const { ipcMain, BrowserWindow } = require("electron");
 const { STORAGE_KEYS } = require("../../shared/constants/storageKeys.cjs");
+const { updateFromTimerState } = require("../windows/taskbarIndicator");
 
 let timerCommand = null;
 
@@ -77,13 +78,18 @@ function registerDataHandlers({ localDb, syncEngine }) {
     afterWrite();
   });
 
-  ipcMain.handle("db:timer:load", () => localDb.loadTimerState());
+  ipcMain.handle("db:timer:load", () => {
+    const state = localDb.loadTimerState();
+    updateFromTimerState(state);
+    return state;
+  });
 
   ipcMain.handle("db:timer:save", (_event, state, options = {}) => {
     localDb.saveTimerState(state, {
       enqueue: options.enqueue !== false,
       runtime: !!options.runtime
     });
+    updateFromTimerState(state);
     if (options.enqueue !== false) {
       syncEngine.notifyStatus();
     }
@@ -91,6 +97,7 @@ function registerDataHandlers({ localDb, syncEngine }) {
 
   ipcMain.handle("db:timer:clear", () => {
     localDb.clearTimerState();
+    updateFromTimerState(null);
     syncEngine.notifyStatus();
     afterWrite();
   });

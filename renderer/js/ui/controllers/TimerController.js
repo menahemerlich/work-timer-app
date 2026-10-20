@@ -65,6 +65,8 @@ export class TimerController {
       this.motivationTimer = setInterval(() => this.rotateMotivationPhrase(), 180000);
     }
 
+    window.electronAPI?.window?.onTaskbarStop?.(() => this.handleTaskbarStop());
+
     setInterval(() => {
       this.timerService.pollCommand({
         onToggle: () => this.timerService.togglePause()
@@ -520,13 +522,32 @@ export class TimerController {
 
   async handleStopAsync() {
     const endTime = new Date();
-    const snapshot = this.timerService.getSnapshot();
-    if (snapshot.isRunning && snapshot.unitCount !== null && snapshot.unitCount !== undefined) {
+    if (this.stopNeedsConfirm()) {
       this.showStopUnitsConfirm(endTime);
       return;
     }
 
     await this.finishSession(endTime);
+  }
+
+  stopNeedsConfirm() {
+    const snapshot = this.timerService.getSnapshot();
+    return snapshot.isRunning && snapshot.unitCount !== null && snapshot.unitCount !== undefined;
+  }
+
+  /**
+   * Stop from the taskbar preview button. Brings the window up if the stop dialog must be
+   * answered, or if there is no session to stop (the button is always enabled).
+   */
+  handleTaskbarStop() {
+    if (!this.timerService.getSnapshot().isRunning) {
+      window.electronAPI?.window?.show?.();
+      return;
+    }
+    if (this.stopNeedsConfirm()) {
+      window.electronAPI?.window?.show?.();
+    }
+    this.handleStop();
   }
 
   /**
