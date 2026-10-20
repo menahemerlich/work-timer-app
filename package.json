@@ -42,7 +42,7 @@
       }
     ],
     "win": {
-      "target": "portable"
+      "target": "nsis"
     }
   },
   "dependencies": {

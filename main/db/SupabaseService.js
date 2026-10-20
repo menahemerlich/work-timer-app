@@ -386,16 +386,18 @@ class SupabaseService {
     }
 
     const sinceFilter = since || "1970-01-01T00:00:00.000Z";
-    const changedRows = (table) =>
-      selectAllPages(() =>
-        client.from(table).select("*").eq("user_id", userId).gt("updated_at", sinceFilter)
+    const changedRows = (table, orderColumn = "id") =>
+      selectAllPages(
+        () => client.from(table).select("*").eq("user_id", userId).gt("updated_at", sinceFilter),
+        orderColumn
       );
 
     const [employersRes, projectsRes, logsRes, settingsRes, timerRes] = await Promise.all([
       changedRows("employers"),
       changedRows("projects"),
       changedRows("work_logs"),
-      changedRows("app_settings"),
+      // app_settings has no id column; its primary key is (user_id, key).
+      changedRows("app_settings", "key"),
       client.from("timer_state").select("*").eq("user_id", userId).maybeSingle()
     ]);
 
@@ -425,11 +427,11 @@ class SupabaseService {
 // silently drops everything after the first 1000. Fetch page by page until a short page.
 const PAGE_SIZE = 1000;
 
-async function selectAllPages(buildQuery) {
+async function selectAllPages(buildQuery, orderColumn) {
   const rows = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await buildQuery()
-      .order("id", { ascending: true })
+      .order(orderColumn, { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
     if (error) {
       return { data: null, error };
