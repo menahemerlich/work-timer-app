@@ -61,6 +61,7 @@
 }
 
 .tab-panel[data-panel="reports"].active,
+.tab-panel[data-panel="charts"].active,
 .tab-panel[data-panel="settings"].active {
   overflow-y: auto;
   overflow-x: hidden;
