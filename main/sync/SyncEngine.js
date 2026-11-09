@@ -136,6 +136,14 @@ class SyncEngine {
       return;
     }
 
+    if (entity_type === "task") {
+      if (operation !== "delete" && payload.employerId) {
+        await this.ensureEmployerInCloud(userId, payload.employerId);
+      }
+      await this.supabase.pushTask(userId, payload, operation);
+      return;
+    }
+
     if (entity_type === "work_log") {
       let logPayload = payload;
       if (operation !== "delete") {
@@ -261,6 +269,30 @@ class SyncEngine {
         }
       });
 
+      (remote.tasks || []).forEach((row) => {
+        const localUpdated = this.findLocalUpdated("task", row.id);
+        if (!localUpdated || new Date(row.updated_at) >= new Date(localUpdated)) {
+          if (row.deleted_at) {
+            this.localDb.deleteTask(row.id, { enqueue: false });
+          } else {
+            this.localDb.upsertTask(
+              {
+                id: row.id,
+                employerId: row.employer_id,
+                title: row.title,
+                notes: row.notes || "",
+                status: row.status,
+                priority: row.priority,
+                dueDate: row.due_date || null,
+                completedAt: row.completed_at || null,
+                createdAt: row.created_at
+              },
+              { enqueue: false }
+            );
+          }
+        }
+      });
+
       remote.workLogs.forEach((row) => {
         const localUpdated = this.findLocalUpdated("work_log", row.id);
         if (!localUpdated || new Date(row.updated_at) >= new Date(localUpdated)) {
@@ -315,6 +347,20 @@ class SyncEngine {
             { enqueue: false }
           );
         }
+        if (key === "paidMonths") {
+          let parsed = value;
+          if (typeof parsed === "string") {
+            try {
+              parsed = JSON.parse(parsed);
+            } catch {
+              parsed = {};
+            }
+          }
+          this.localDb.saveSettings(
+            { paidMonths: parsed && typeof parsed === "object" ? parsed : {} },
+            { enqueue: false }
+          );
+        }
       });
 
       if (remote.timerState) {
@@ -362,6 +408,9 @@ class SyncEngine {
     }
     if (entityType === "project") {
       return this.localDb.getProjectById(entityId, { includeDeleted: true })?.updatedAt || null;
+    }
+    if (entityType === "task") {
+      return this.localDb.getTaskById(entityId, { includeDeleted: true })?.updatedAt || null;
     }
     if (entityType === "work_log") {
       const row = this.localDb.getAllLogs(true).find((item) => item.id === entityId);

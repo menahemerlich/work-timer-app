@@ -567,3 +567,9 @@ body[data-active-tab="timer"] .footer-hint {
     font-size: 20px;
   }
 }
+
+/* Email addresses are typed left-to-right; the Hebrew placeholder stays right-to-left. */
+.ltr-when-filled:not(:placeholder-shown) {
+  direction: ltr;
+  text-align: left;
+}

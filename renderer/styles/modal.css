@@ -225,3 +225,29 @@ body.modal-open #appModal {
 #logFormUnitsWrap[hidden] {
   display: none;
 }
+
+.modal-card.modal-card--wide {
+  max-width: 640px;
+}
+
+.compose-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.compose-body {
+  min-height: 220px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+.compose-preview {
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid #f3e8ff;
+  background: #fff;
+}

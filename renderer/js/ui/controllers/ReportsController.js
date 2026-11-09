@@ -4,6 +4,7 @@ import {
   formatDateInputValue,
   formatHebrewDateFromInput,
   parseHebrewDate,
+  getMonthKeyFromHebrewDate,
   getHebrewMonthLabel
 } from "../../core/utils/dateParse.js";
 import { formatDuration, formatHoursMinutes } from "../../core/utils/timeFormat.js";
@@ -55,6 +56,9 @@ export class ReportsController {
     this.view.clearFiltersBtn?.addEventListener("click", () => {
       this.view.setAllEmployerChipsChecked(this.view.employerFilterChips, false);
       this.view.clearDateFilters();
+      if (this.view.unpaidOnlyFilter) {
+        this.view.unpaidOnlyFilter.checked = false;
+      }
       this.view.closeFiltersDrawer();
       this.refresh();
     });
@@ -86,6 +90,8 @@ export class ReportsController {
     });
     this.view.dateFrom.addEventListener("change", () => this.refresh());
     this.view.dateTo.addEventListener("change", () => this.refresh());
+    this.view.unpaidOnlyFilter?.addEventListener("change", () => this.refresh());
+    this.view.monthlySummaryUnpaidOnly?.addEventListener("change", () => this.refresh());
     this.view.dateFilterClear?.addEventListener("click", () => {
       this.view.clearDateFilters();
       this.refresh();
@@ -125,15 +131,29 @@ export class ReportsController {
     return {
       employerFilters: this.view.getSelectedEmployerFilters(this.view.employerFilterChips),
       dateFrom: this.view.dateFrom.value || null,
-      dateTo: this.view.dateTo.value || null
+      dateTo: this.view.dateTo.value || null,
+      unpaidOnly: Boolean(this.view.unpaidOnlyFilter?.checked)
     };
+  }
+
+  /** True when the log's employer is marked as paid for the log's month. */
+  isLogPaid(log) {
+    const parsed = parseHebrewDate(log.date);
+    if (!parsed) {
+      return false;
+    }
+    return this.employerRepo.settingsRepository.isEmployerPaid(
+      `${parsed.year}-${parsed.month}`,
+      log.employerName || UNKNOWN_EMPLOYER
+    );
   }
 
   getMonthlySummaryFilters() {
     return {
       employerFilters: this.view.getSelectedEmployerFilters(this.view.monthlySummaryEmployerChips),
       dateFrom: null,
-      dateTo: null
+      dateTo: null,
+      unpaidOnly: Boolean(this.view.monthlySummaryUnpaidOnly?.checked)
     };
   }
 
@@ -168,12 +188,15 @@ export class ReportsController {
   }
 
   applyEmployerFilter(logs, filters) {
-    const { employerFilters = [], dateFrom, dateTo } = filters;
-    const dateFiltered = this.reportService.filterLogs(logs, {
+    const { employerFilters = [], dateFrom, dateTo, unpaidOnly = false } = filters;
+    let dateFiltered = this.reportService.filterLogs(logs, {
       employerFilter: "all",
       dateFrom,
       dateTo
     });
+    if (unpaidOnly) {
+      dateFiltered = dateFiltered.filter((log) => !this.isLogPaid(log));
+    }
 
     if (!this.shouldFilterByEmployers(employerFilters, filters.totalOptions ?? employerFilters.length)) {
       return dateFiltered;
@@ -214,7 +237,7 @@ export class ReportsController {
     const hasEmployerFilterActive =
       selectedReports.length > 0 && selectedReports.length < filterItems.length;
     const hasDateFilterActive = Boolean(this.view.dateFrom?.value || this.view.dateTo?.value);
-    this.view.setFiltersActive(hasEmployerFilterActive || hasDateFilterActive);
+    this.view.setFiltersActive(hasEmployerFilterActive || hasDateFilterActive || reportFilters.unpaidOnly);
     const logHandlers = {
       onEdit: (log) => this.handleEdit(log),
       onDelete: (log) => this.handleDelete(log),
@@ -264,14 +287,42 @@ export class ReportsController {
     monthlyFilters.totalOptions = filterItems.length;
     const filteredMonthLogs = this.applyEmployerFilter(monthLogs, monthlyFilters);
 
-    const goalProgress = this.computeMonthlyGoalProgress(filteredMonthLogs, referenceDate);
+    const goalProgress = this.computeMonthlyGoalProgress(
+      monthlyFilters.unpaidOnly
+        ? this.applyEmployerFilter(monthLogs, { ...monthlyFilters, unpaidOnly: false })
+        : filteredMonthLogs,
+      referenceDate
+    );
+    const settingsRepo = this.employerRepo.settingsRepository;
+    const paidMonthKey =
+      this.selectedMonthKey || `${referenceDate.getFullYear()}-${referenceDate.getMonth() + 1}`;
 
     this.view.renderMonthlySummary(this.reportService.getSummaryByEmployer(filteredMonthLogs), {
       hasMonthData: allLogs.length > 0,
       getEmployerColorByName: (name) => this.getEmployerColorByName(name),
       onOpenCalculator: () =>
         this.openMonthlyEarningsModal(filteredMonthLogs, referenceDate, monthlyFilters),
-      goalProgress
+      goalProgress,
+      emptyMessage: monthlyFilters.unpaidOnly
+        ? "🎉 כל המעסיקים בחודש זה סומנו כשולמו"
+        : "אין נתונים להצגה בחודש זה",
+      isPaid: (employerName) => settingsRepo.isEmployerPaid(paidMonthKey, employerName),
+      emailActions: this.emailNotifier
+        ? {
+            canRequestPayment: this.emailNotifier.isEnabled("paymentRequest"),
+            onPaymentRequest: (employerName) =>
+              void this.emailNotifier.openPaymentRequest(paidMonthKey, employerName),
+            onClientSummary: (employerName) =>
+              void this.emailNotifier.openClientSummary(paidMonthKey, employerName),
+            onMonthlySummary: () => void this.emailNotifier.openMonthlySummary(paidMonthKey)
+          }
+        : null,
+      onTogglePaid: (employerName, paid) => {
+        settingsRepo
+          .setEmployerPaid(paidMonthKey, employerName, paid)
+          .catch((error) => console.error(error))
+          .finally(() => this.refresh());
+      }
     });
   }
 
@@ -384,6 +435,85 @@ export class ReportsController {
     };
   }
 
+  /**
+   * One month of work per employer, for emails: days, hours, pay (hourly + units + fixed-price
+   * projects created that month) and whether it was marked as paid.
+   */
+  buildMonthReport(monthKey) {
+    const referenceDate = this.resolveReferenceDate(monthKey);
+    const [year, month] = String(monthKey).split("-").map(Number);
+    const monthLabel = getHebrewMonthLabel(month, year, new Date(1900, 0, 1));
+    const monthLogs = this.reportService.getCurrentMonthLogs(this.logRepo.getAll(), referenceDate);
+    const summary = this.reportService.getSummaryByEmployer(monthLogs);
+    const employers = this.employerRepo.getAll();
+    const activeEmployerIds = new Set(employers.map((employer) => employer.id));
+    const fixedProjects = getFixedProjectsIncomeForMonth(
+      this.projectRepo?.getAll() || [],
+      referenceDate,
+      activeEmployerIds
+    );
+    const payContext = this.getPayContext();
+    const settingsRepo = this.employerRepo.settingsRepository;
+
+    const rows = summary.rows
+      .map((row) => {
+        const employer = employers.find((item) => item.name === row.employerName) || null;
+        const logs = monthLogs
+          .filter((log) => (log.employerName || UNKNOWN_EMPLOYER) === row.employerName)
+          .sort((a, b) => (parseHebrewDate(a.date)?.date || 0) - (parseHebrewDate(b.date)?.date || 0));
+        const fixed = employer
+          ? fixedProjects.filter((project) => project.employerId === employer.id)
+          : [];
+        const amount =
+          computeLogsPay(logs, payContext).total +
+          fixed.reduce((sum, project) => sum + project.fixedPrice, 0);
+        return {
+          employerId: employer?.id || null,
+          employerName: row.employerName,
+          workDays: row.workDays,
+          totalMs: row.totalMs,
+          hoursStr: formatHoursMinutes(row.totalMs),
+          amount,
+          amountStr: formatMoney(amount),
+          paid: settingsRepo.isEmployerPaid(monthKey, row.employerName),
+          logs,
+          fixedProjects: fixed
+        };
+      })
+      .sort((a, b) => a.employerName.localeCompare(b.employerName, "he"));
+
+    const totalMs = rows.reduce((sum, row) => sum + row.totalMs, 0);
+    const totalAmount = rows.reduce((sum, row) => sum + row.amount, 0);
+    return {
+      monthKey,
+      monthLabel,
+      rows,
+      totalMs,
+      totalHoursStr: formatHoursMinutes(totalMs),
+      totalAmount,
+      totalAmountStr: formatMoney(totalAmount),
+      workDays: summary.overall.workDays
+    };
+  }
+
+  /** Expected hours for the whole month (all Sunday–Thursday days), or null without a target. */
+  computeFullMonthTargetHours(referenceDate = new Date()) {
+    const hoursPerDay = this.employerRepo.settingsRepository.getSettings().monthlyTargetHoursPerDay ?? null;
+    if (!hoursPerDay || hoursPerDay <= 0) {
+      return null;
+    }
+    const year = referenceDate.getFullYear();
+    const month = referenceDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let workDays = 0;
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      if (new Date(year, month, day).getDay() <= 4) {
+        workDays += 1;
+      }
+    }
+    return workDays * hoursPerDay;
+  }
+
   getPayContext() {
     return {
       employers: this.employerRepo.getAll(),
@@ -392,10 +522,10 @@ export class ReportsController {
   }
 
   /** Active employers' fixed-price projects that pass the given employer filter. */
-  getFixedIncomeProjects(selectFn, filters) {
+  getFixedIncomeProjects(selectFn, filters, monthKey = null) {
     const activeEmployerIds = new Set(this.employerRepo.getAll().map((employer) => employer.id));
     return selectFn(this.projectRepo?.getAll() || [], activeEmployerIds).filter((project) =>
-      this.projectMatchesEmployerFilter(project, filters)
+      this.projectMatchesEmployerFilter(project, filters, monthKey)
     );
   }
 
@@ -407,7 +537,8 @@ export class ReportsController {
     const ms = this.reportService.getTotalDurationMs(logs);
     const fixed = this.getFixedIncomeProjects(
       (projects, ids) => getFixedProjectsIncomeForDate(projects, dateStr, ids),
-      filters
+      filters,
+      getMonthKeyFromHebrewDate(dateStr)
     );
     const pay =
       computeLogsPay(logs, this.getPayContext()).total +
@@ -420,7 +551,8 @@ export class ReportsController {
     const ms = this.reportService.getTotalDurationMs(logs);
     const fixed = this.getFixedIncomeProjects(
       (projects, ids) => getFixedProjectsIncomeForMonth(projects, this.resolveReferenceDate(monthKey), ids),
-      filters
+      filters,
+      monthKey
     );
     const pay =
       computeLogsPay(logs, this.getPayContext()).total +
@@ -428,12 +560,19 @@ export class ReportsController {
     return { hoursStr: formatHoursMinutes(ms), payStr: formatMoney(pay) };
   }
 
-  projectMatchesEmployerFilter(project, filters) {
-    const { employerFilters = [], totalOptions = employerFilters.length } = filters || {};
+  projectMatchesEmployerFilter(project, filters, monthKey = null) {
+    const { employerFilters = [], totalOptions = employerFilters.length, unpaidOnly = false } = filters || {};
+    const employer = this.employerRepo.getById(project.employerId);
+    if (
+      unpaidOnly &&
+      monthKey &&
+      this.employerRepo.settingsRepository.isEmployerPaid(monthKey, employer?.name || "")
+    ) {
+      return false;
+    }
     if (!this.shouldFilterByEmployers(employerFilters, totalOptions)) {
       return true;
     }
-    const employer = this.employerRepo.getById(project.employerId);
     const pseudoLog = { employerId: project.employerId, employerName: employer?.name || "" };
     return employerFilters.some((filter) => this.logMatchesEmployerFilter(pseudoLog, filter));
   }
@@ -489,7 +628,13 @@ export class ReportsController {
       this.projectRepo?.getAll() || [],
       referenceDate,
       activeEmployerIds
-    ).filter((project) => this.projectMatchesEmployerFilter(project, monthlyFilters));
+    ).filter((project) =>
+      this.projectMatchesEmployerFilter(
+        project,
+        monthlyFilters,
+        `${referenceDate.getFullYear()}-${referenceDate.getMonth() + 1}`
+      )
+    );
     const incomeIds = new Set(incomeProjects.map((project) => project.id));
     const projectsTotal = incomeProjects.reduce((sum, project) => sum + project.fixedPrice, 0);
 

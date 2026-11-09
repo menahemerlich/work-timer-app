@@ -277,6 +277,43 @@ class SupabaseService {
     }
   }
 
+  async pushTask(userId, task, operation) {
+    const client = this.getClient();
+    if (!client || !userId) {
+      throw new Error("אין חיבור לענן — התחבר מחדש");
+    }
+
+    if (operation === "delete") {
+      const { error } = await client
+        .from("tasks")
+        .update({ deleted_at: task.deletedAt || new Date().toISOString() })
+        .eq("id", task.id)
+        .eq("user_id", userId);
+      if (error) {
+        throw error;
+      }
+      return;
+    }
+
+    const { error } = await client.from("tasks").upsert({
+      id: task.id,
+      user_id: userId,
+      employer_id: task.employerId,
+      title: task.title,
+      notes: task.notes || "",
+      status: task.status === "done" ? "done" : "open",
+      priority: ["low", "high"].includes(task.priority) ? task.priority : "normal",
+      due_date: task.dueDate || null,
+      completed_at: task.completedAt || null,
+      created_at: task.createdAt,
+      updated_at: task.updatedAt || new Date().toISOString(),
+      deleted_at: null
+    });
+    if (error) {
+      throw error;
+    }
+  }
+
   async pushWorkLog(userId, log, operation) {
     const client = this.getClient();
     if (!client || !userId) {
@@ -382,7 +419,7 @@ class SupabaseService {
   async pullChanges(userId, since) {
     const client = this.getClient();
     if (!client || !userId) {
-      return { employers: [], projects: [], workLogs: [], appSettings: [], timerState: null };
+      return { employers: [], projects: [], tasks: [], workLogs: [], appSettings: [], timerState: null };
     }
 
     const sinceFilter = since || "1970-01-01T00:00:00.000Z";
@@ -392,9 +429,10 @@ class SupabaseService {
         orderColumn
       );
 
-    const [employersRes, projectsRes, logsRes, settingsRes, timerRes] = await Promise.all([
+    const [employersRes, projectsRes, tasksRes, logsRes, settingsRes, timerRes] = await Promise.all([
       changedRows("employers"),
       changedRows("projects"),
+      changedRows("tasks"),
       changedRows("work_logs"),
       // app_settings has no id column; its primary key is (user_id, key).
       changedRows("app_settings", "key"),
@@ -412,10 +450,15 @@ class SupabaseService {
     if (projectsRes.error) {
       console.warn("Pull projects skipped:", projectsRes.error.message);
     }
+    // Same for tasks (004_tasks.sql).
+    if (tasksRes.error) {
+      console.warn("Pull tasks skipped:", tasksRes.error.message);
+    }
 
     return {
       employers: employersRes.data || [],
       projects: projectsRes.error ? [] : projectsRes.data || [],
+      tasks: tasksRes.error ? [] : tasksRes.data || [],
       workLogs: logsRes.data || [],
       appSettings: settingsRes.data || [],
       timerState: timerRes.data || null

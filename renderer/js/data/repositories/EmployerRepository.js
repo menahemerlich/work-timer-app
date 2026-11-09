@@ -47,7 +47,8 @@ export class SettingsRepository {
       earningsWindowCorner: null,
       motivationPosition: null,
       motivationIntervalMinutes: null,
-      motivationDurationSeconds: null
+      motivationDurationSeconds: null,
+      paidMonths: {}
     };
 
     this.initialized = false;
@@ -88,7 +89,9 @@ export class SettingsRepository {
 
       motivationIntervalMinutes: data.motivationIntervalMinutes ?? null,
 
-      motivationDurationSeconds: data.motivationDurationSeconds ?? null
+      motivationDurationSeconds: data.motivationDurationSeconds ?? null,
+
+      paidMonths: data.paidMonths || {}
 
     });
 
@@ -130,7 +133,9 @@ export class SettingsRepository {
 
       motivationIntervalMinutes: settings.motivationIntervalMinutes ?? null,
 
-      motivationDurationSeconds: settings.motivationDurationSeconds ?? null
+      motivationDurationSeconds: settings.motivationDurationSeconds ?? null,
+
+      paidMonths: settings.paidMonths || this.settings?.paidMonths || {}
 
     };
 
@@ -156,7 +161,9 @@ export class SettingsRepository {
 
       motivationIntervalMinutes: this.settings.motivationIntervalMinutes,
 
-      motivationDurationSeconds: this.settings.motivationDurationSeconds
+      motivationDurationSeconds: this.settings.motivationDurationSeconds,
+
+      paidMonths: { ...this.settings.paidMonths }
 
     };
 
@@ -271,6 +278,37 @@ export class SettingsRepository {
 
 
 
+  isEmployerPaid(monthKey, employerName) {
+    const list = this.settings.paidMonths?.[monthKey];
+    return Array.isArray(list) && list.includes(employerName);
+  }
+
+  async setEmployerPaid(monthKey, employerName, paid) {
+    if (!monthKey || !employerName) {
+      return;
+    }
+    const paidMonths = { ...this.settings.paidMonths };
+    const list = new Set(paidMonths[monthKey] || []);
+    if (paid) {
+      list.add(employerName);
+    } else {
+      list.delete(employerName);
+    }
+    if (list.size) {
+      paidMonths[monthKey] = [...list];
+    } else {
+      delete paidMonths[monthKey];
+    }
+    this.settings.paidMonths = paidMonths;
+    const api = getSettingsApi();
+    if (api) {
+      await api.save({ paidMonths });
+    }
+    window.dispatchEvent(new CustomEvent("settings:changed"));
+  }
+
+
+
   async persistEmployerDelete(id) {
 
     const api = getEmployersApi();
@@ -299,7 +337,10 @@ export class SettingsRepository {
       ...this.settings.employers.map((employer) => this.persistEmployer(employer)),
 
       this.persistLastSelected(),
-      this.persistMonthlyTargets()
+      this.persistMonthlyTargets(),
+      settings.paidMonths !== undefined
+        ? getSettingsApi()?.save({ paidMonths: this.settings.paidMonths })
+        : null
 
     ]).catch(console.error);
 

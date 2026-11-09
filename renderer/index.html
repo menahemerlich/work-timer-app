@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="styles/settings.css" />
   <link rel="stylesheet" href="styles/modal.css" />
   <link rel="stylesheet" href="styles/charts.css" />
+  <link rel="stylesheet" href="styles/tasks.css" />
 </head>
 <body>
   <div class="bg-blobs" aria-hidden="true">
@@ -56,6 +57,9 @@
           </button>
           <button type="button" class="tab-btn" data-tab="reports">
             <span class="tab-icon">📊</span> דוחות
+          </button>
+          <button type="button" class="tab-btn" data-tab="tasks">
+            <span class="tab-icon">📋</span> משימות
           </button>
           <button type="button" class="tab-btn" data-tab="charts">
             <span class="tab-icon">📈</span> גרפים
@@ -187,6 +191,16 @@
                   </div>
                 </div>
               </div>
+
+              <div class="filter-panel filter-panel-payment">
+                <div class="filter-panel-header">
+                  <span class="filter-panel-title">💰 לפי תשלום</span>
+                </div>
+                <label class="paid-toggle unpaid-filter-toggle">
+                  <input type="checkbox" id="unpaidOnlyFilter" />
+                  <span>לא שולם בלבד</span>
+                </label>
+              </div>
             </div>
           </aside>
 
@@ -239,22 +253,33 @@
 
           <div class="panel-card" id="monthlySummaryBox" style="display:none;">
             <div class="summary-header">
-              <div class="summary-title-row">
+              <div class="summary-top-row">
                 <div class="section-title">📦 סיכום חודשי</div>
                 <div class="summary-month-picker">
                   <label class="field-label" for="monthlySummaryMonth">חודש</label>
                   <select id="monthlySummaryMonth" class="field-input"></select>
                 </div>
               </div>
-              <div class="filter-group summary-filter filter-group-employers">
-                <div class="filter-label-row">
-                  <span class="field-label">מעסיקים</span>
-                  <div class="employer-filter-actions">
-                    <button type="button" class="link-btn" id="monthlySummarySelectAll">הכל</button>
-                    <button type="button" class="link-btn" id="monthlySummaryClearAll">נקה</button>
+              <div class="summary-filters">
+                <div class="summary-zone summary-zone-employers">
+                  <div class="summary-zone-head">
+                    <span class="summary-zone-title">🏢 מעסיקים</span>
+                    <div class="employer-filter-actions">
+                      <button type="button" class="link-btn" id="monthlySummarySelectAll">הכל</button>
+                      <button type="button" class="link-btn" id="monthlySummaryClearAll">נקה</button>
+                    </div>
                   </div>
+                  <div id="monthlySummaryEmployerChips" class="employer-filter-chips"></div>
                 </div>
-                <div id="monthlySummaryEmployerChips" class="employer-filter-chips"></div>
+                <div class="summary-zone summary-zone-payment">
+                  <div class="summary-zone-head">
+                    <span class="summary-zone-title">💰 תשלום</span>
+                  </div>
+                  <label class="paid-toggle unpaid-filter-toggle">
+                    <input type="checkbox" id="monthlySummaryUnpaidOnly" />
+                    <span>לא שולם בלבד</span>
+                  </label>
+                </div>
               </div>
             </div>
             <div id="monthlyGoalBox" class="monthly-goal-box" hidden></div>
@@ -265,6 +290,8 @@
                     <th>מעסיק</th>
                     <th>ימי עבודה</th>
                     <th>סה"כ שעות</th>
+                    <th>שולם</th>
+                    <th>שליחה</th>
                   </tr>
                 </thead>
                 <tbody id="monthlySummaryBody"></tbody>
@@ -287,6 +314,28 @@
 
           <input type="file" id="fileInput" accept=".csv" hidden />
           <input type="file" id="backupInput" accept=".json" hidden />
+        </section>
+
+        <section class="tab-panel" data-panel="tasks">
+          <div class="tasks-layout">
+            <aside class="tasks-sidebar" aria-label="לקוחות">
+              <div class="tasks-sidebar-head">
+                <span>👥 לקוחות</span>
+                <span class="tasks-sidebar-total" id="tasksOpenTotal"></span>
+              </div>
+              <div class="tasks-client-list" id="tasksClientList" role="listbox" aria-label="בחירת לקוח"></div>
+            </aside>
+            <div class="tasks-main">
+              <div class="tasks-main-head">
+                <div class="tasks-heading">
+                  <div class="tasks-title" id="tasksTitle">📋 משימות</div>
+                  <div class="tasks-subtitle" id="tasksSubtitle"></div>
+                </div>
+                <button type="button" class="btn-action btn-lavender-solid tasks-add-btn" id="tasksAddBtn">＋ הוספת משימה</button>
+              </div>
+              <div class="tasks-main-body" id="tasksBody"></div>
+            </div>
+          </div>
         </section>
 
         <section class="tab-panel" data-panel="charts">
@@ -404,6 +453,8 @@
                 </div>
               </div>
             </div>
+
+            <div class="settings-goals settings-email" id="emailSettingsSection"></div>
 
             <div class="settings-advanced">
               <div class="section-title">🛡️ מתקדם</div>

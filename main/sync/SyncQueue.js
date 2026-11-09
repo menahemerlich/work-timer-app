@@ -8,7 +8,8 @@ class SyncQueue {
     project: 1,
     app_settings: 2,
     work_log: 3,
-    timer_state: 4
+    timer_state: 4,
+    task: 5
   };
 
   getPending() {

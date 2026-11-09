@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 const MIGRATION_V1 = `
 CREATE TABLE IF NOT EXISTS employers (
@@ -140,6 +140,25 @@ const MIGRATION_V7 = `
 ALTER TABLE employers ADD COLUMN rate_changes TEXT;
 `;
 
+// Tasks per employer (client). status is "open" or "done"; priority is "low" / "normal" / "high".
+const MIGRATION_V8 = `
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY,
+  employer_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  notes TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'open',
+  priority TEXT NOT NULL DEFAULT 'normal',
+  due_date TEXT,
+  completed_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_employer_id ON tasks(employer_id);
+`;
+
 module.exports = {
   SCHEMA_VERSION,
   MIGRATION_V1,
@@ -148,5 +167,6 @@ module.exports = {
   MIGRATION_V4,
   MIGRATION_V5,
   MIGRATION_V6,
-  MIGRATION_V7
+  MIGRATION_V7,
+  MIGRATION_V8
 };

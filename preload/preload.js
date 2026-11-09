@@ -45,6 +45,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
       upsert: (project) => ipcRenderer.invoke("db:projects:upsert", project),
       delete: (id) => ipcRenderer.invoke("db:projects:delete", id)
     },
+    tasks: {
+      getAll: () => ipcRenderer.invoke("db:tasks:getAll"),
+      upsert: (task) => ipcRenderer.invoke("db:tasks:upsert", task),
+      delete: (id) => ipcRenderer.invoke("db:tasks:delete", id)
+    },
     logs: {
       getAll: () => ipcRenderer.invoke("db:logs:getAll"),
       upsert: (log) => ipcRenderer.invoke("db:logs:upsert", log),
@@ -81,6 +86,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     signOut: () => ipcRenderer.invoke("auth:signOut"),
     getSession: () => ipcRenderer.invoke("auth:getSession"),
     isConfigured: () => ipcRenderer.invoke("auth:isConfigured")
+  },
+
+  email: {
+    getConfig: () => ipcRenderer.invoke("email:getConfig"),
+    saveConfig: (patch) => ipcRenderer.invoke("email:saveConfig", patch),
+    verify: () => ipcRenderer.invoke("email:verify"),
+    send: (mail) => ipcRenderer.invoke("email:send", mail),
+    markSent: (key) => ipcRenderer.invoke("email:markSent", key)
   },
 
   sync: {
