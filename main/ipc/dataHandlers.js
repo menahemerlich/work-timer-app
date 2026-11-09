@@ -49,6 +49,21 @@ function registerDataHandlers({ localDb, syncEngine }) {
     afterWrite();
   });
 
+  ipcMain.handle("db:tasks:getAll", () => localDb.getAllTasks());
+
+  ipcMain.handle("db:tasks:upsert", (_event, task) => {
+    const saved = localDb.upsertTask(task);
+    syncEngine.notifyStatus();
+    afterWrite();
+    return saved;
+  });
+
+  ipcMain.handle("db:tasks:delete", (_event, id) => {
+    localDb.deleteTask(id);
+    syncEngine.notifyStatus();
+    afterWrite();
+  });
+
   ipcMain.handle("db:logs:getAll", () => localDb.getAllLogs());
 
   ipcMain.handle("db:logs:upsert", (_event, log) => {

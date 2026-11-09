@@ -2,6 +2,7 @@ import { LogRepository } from "./data/repositories/LogRepository.js";
 import { EmployerRepository, SettingsRepository } from "./data/repositories/EmployerRepository.js";
 import { TimerStateRepository } from "./data/repositories/TimerStateRepository.js";
 import { ProjectRepository } from "./data/repositories/ProjectRepository.js";
+import { TaskRepository } from "./data/repositories/TaskRepository.js";
 import { DataMigrator } from "./data/migration/DataMigrator.js";
 import { TimerService } from "./core/services/TimerService.js";
 import { ReportSummaryService } from "./core/services/ReportSummaryService.js";
@@ -23,11 +24,13 @@ import { SettingsController } from "./ui/controllers/SettingsController.js";
 import { AuthController } from "./ui/controllers/AuthController.js";
 import { SyncStatusController } from "./ui/controllers/SyncStatusController.js";
 import { ChartsController } from "./ui/controllers/ChartsController.js";
+import { TasksController } from "./ui/controllers/TasksController.js";
 
 const settingsRepo = new SettingsRepository();
 const employerRepo = new EmployerRepository(settingsRepo);
 const logRepo = new LogRepository();
 const projectRepo = new ProjectRepository();
+const taskRepo = new TaskRepository();
 const timerStateRepo = new TimerStateRepository();
 
 let timerService = null;
@@ -37,6 +40,7 @@ async function bootstrapRepositories() {
   await logRepo.init();
   await employerRepo.init();
   await projectRepo.init();
+  await taskRepo.init();
   await timerStateRepo.init();
   await DataMigrator.run({ logRepo, settingsRepo });
 }
@@ -55,7 +59,7 @@ async function startApp() {
   const validationService = new LogValidationService();
   const csvExporter = new CsvExporter();
   const csvImporter = new CsvImporter({ logRepo });
-  const jsonBackupService = new JsonBackupService({ logRepo, settingsRepo, projectRepo });
+  const jsonBackupService = new JsonBackupService({ logRepo, settingsRepo, projectRepo, taskRepo });
 
   const tabNav = new TabNav();
   const modal = new Modal("appModal");
@@ -108,6 +112,8 @@ async function startApp() {
     chartDataService: new ChartDataService()
   });
 
+  const tasksController = new TasksController({ taskRepo, employerRepo, modal });
+
   const authController = new AuthController({ modal });
   const syncStatusController = new SyncStatusController();
 
@@ -122,7 +128,10 @@ async function startApp() {
 
   initFocusGuard();
   initConfirmDialog(modal);
-  tabNav.init((tabId) => chartsController.onTabChange(tabId));
+  tabNav.init((tabId) => {
+    chartsController.onTabChange(tabId);
+    tasksController.onTabChange(tabId);
+  });
 
   document.getElementById("windowMinimizeBtn")?.addEventListener("click", () => {
     window.electronAPI?.window?.minimize();
@@ -137,6 +146,7 @@ async function startApp() {
   safeInit("דוחות", () => reportsController.init());
   safeInit("טיימר", () => timerController.init());
   safeInit("גרפים", () => chartsController.init());
+  safeInit("משימות", () => tasksController.init());
 }
 
 startApp();

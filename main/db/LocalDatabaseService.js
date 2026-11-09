@@ -7,7 +7,8 @@ const {
   MIGRATION_V4,
   MIGRATION_V5,
   MIGRATION_V6,
-  MIGRATION_V7
+  MIGRATION_V7,
+  MIGRATION_V8
 } = require("./schema");
 
 function nowIso() {
@@ -73,6 +74,12 @@ class LocalDatabaseService {
     if (row.version < 7) {
       this.db.exec(MIGRATION_V7);
       this.db.prepare("UPDATE schema_version SET version = ?").run(7);
+    }
+
+    row = this.db.prepare("SELECT version FROM schema_version LIMIT 1").get() || row;
+    if (row.version < 8) {
+      this.db.exec(MIGRATION_V8);
+      this.db.prepare("UPDATE schema_version SET version = ?").run(8);
     }
   }
 
@@ -340,6 +347,88 @@ class LocalDatabaseService {
 
     if (enqueue) {
       this.enqueueSync("project", id, "delete", { id, deletedAt: ts });
+    }
+  }
+
+  getAllTasks(includeDeleted = false) {
+    const sql = includeDeleted
+      ? "SELECT * FROM tasks ORDER BY created_at"
+      : "SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY created_at";
+    return this.db.prepare(sql).all().map(mapTaskRow);
+  }
+
+  getTaskById(id, { includeDeleted = false } = {}) {
+    const sql = includeDeleted
+      ? "SELECT * FROM tasks WHERE id = ?"
+      : "SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL";
+    const row = this.db.prepare(sql).get(id);
+    return row ? mapTaskRow(row) : null;
+  }
+
+  upsertTask(task, { enqueue = true } = {}) {
+    const ts = nowIso();
+    const status = normalizeTaskStatus(task.status);
+    const saved = {
+      id: task.id,
+      employerId: task.employerId,
+      title: String(task.title || "").trim(),
+      notes: task.notes || "",
+      status,
+      priority: normalizeTaskPriority(task.priority),
+      dueDate: task.dueDate || null,
+      completedAt: status === "done" ? task.completedAt || ts : null,
+      createdAt: task.createdAt || ts,
+      updatedAt: ts
+    };
+
+    this.db
+      .prepare(
+        `INSERT INTO tasks (
+           id, employer_id, title, notes, status, priority, due_date, completed_at,
+           created_at, updated_at, deleted_at
+         )
+         VALUES (
+           @id, @employer_id, @title, @notes, @status, @priority, @due_date, @completed_at,
+           @created_at, @updated_at, NULL
+         )
+         ON CONFLICT(id) DO UPDATE SET
+           employer_id = excluded.employer_id,
+           title = excluded.title,
+           notes = excluded.notes,
+           status = excluded.status,
+           priority = excluded.priority,
+           due_date = excluded.due_date,
+           completed_at = excluded.completed_at,
+           updated_at = excluded.updated_at,
+           deleted_at = NULL`
+      )
+      .run({
+        id: saved.id,
+        employer_id: saved.employerId,
+        title: saved.title,
+        notes: saved.notes,
+        status: saved.status,
+        priority: saved.priority,
+        due_date: saved.dueDate,
+        completed_at: saved.completedAt,
+        created_at: saved.createdAt,
+        updated_at: ts
+      });
+
+    if (enqueue) {
+      this.enqueueSync("task", saved.id, "upsert", saved);
+    }
+    return saved;
+  }
+
+  deleteTask(id, { enqueue = true } = {}) {
+    const ts = nowIso();
+    this.db
+      .prepare("UPDATE tasks SET deleted_at = ?, updated_at = ? WHERE id = ?")
+      .run(ts, ts, id);
+
+    if (enqueue) {
+      this.enqueueSync("task", id, "delete", { id, deletedAt: ts });
     }
   }
 
@@ -676,6 +765,7 @@ class LocalDatabaseService {
     const tx = this.db.transaction(() => {
       // Clear user data
       this.db.prepare("DELETE FROM work_logs").run();
+      this.db.prepare("DELETE FROM tasks").run();
       this.db.prepare("DELETE FROM projects").run();
       this.db.prepare("DELETE FROM employers").run();
       this.db.prepare("DELETE FROM app_settings").run();
@@ -732,6 +822,13 @@ class LocalDatabaseService {
       this.enqueueSync("project", project.id, "upsert", {
         ...project,
         updatedAt: project.updatedAt || ts
+      });
+    });
+
+    this.getAllTasks().forEach((task) => {
+      this.enqueueSync("task", task.id, "upsert", {
+        ...task,
+        updatedAt: task.updatedAt || ts
       });
     });
 
@@ -834,6 +931,30 @@ function mapProjectRow(row) {
     unitPrice: row.unit_price ?? null,
     unitName: row.unit_name || null,
     unitSingular: row.unit_singular || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at
+  };
+}
+
+function normalizeTaskStatus(value) {
+  return value === "done" ? "done" : "open";
+}
+
+function normalizeTaskPriority(value) {
+  return value === "low" || value === "high" ? value : "normal";
+}
+
+function mapTaskRow(row) {
+  return {
+    id: row.id,
+    employerId: row.employer_id,
+    title: row.title,
+    notes: row.notes || "",
+    status: normalizeTaskStatus(row.status),
+    priority: normalizeTaskPriority(row.priority),
+    dueDate: row.due_date || null,
+    completedAt: row.completed_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at

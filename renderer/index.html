@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="styles/settings.css" />
   <link rel="stylesheet" href="styles/modal.css" />
   <link rel="stylesheet" href="styles/charts.css" />
+  <link rel="stylesheet" href="styles/tasks.css" />
 </head>
 <body>
   <div class="bg-blobs" aria-hidden="true">
@@ -56,6 +57,9 @@
           </button>
           <button type="button" class="tab-btn" data-tab="reports">
             <span class="tab-icon">📊</span> דוחות
+          </button>
+          <button type="button" class="tab-btn" data-tab="tasks">
+            <span class="tab-icon">📋</span> משימות
           </button>
           <button type="button" class="tab-btn" data-tab="charts">
             <span class="tab-icon">📈</span> גרפים
@@ -287,6 +291,18 @@
 
           <input type="file" id="fileInput" accept=".csv" hidden />
           <input type="file" id="backupInput" accept=".json" hidden />
+        </section>
+
+        <section class="tab-panel" data-panel="tasks">
+          <div class="tasks-toolbar">
+            <div class="tasks-heading">
+              <button type="button" class="tasks-back-btn" id="tasksBackBtn" hidden>→ כל הלקוחות</button>
+              <div class="section-title tasks-title" id="tasksTitle">📋 משימות</div>
+              <p class="charts-desc" id="tasksSubtitle"></p>
+            </div>
+            <button type="button" class="btn-action btn-lavender-solid tasks-add-btn" id="tasksAddBtn">＋ הוספת משימה</button>
+          </div>
+          <div id="tasksBody"></div>
         </section>
 
         <section class="tab-panel" data-panel="charts">
