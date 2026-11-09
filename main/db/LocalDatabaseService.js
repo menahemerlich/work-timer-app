@@ -548,7 +548,8 @@ class LocalDatabaseService {
       earningsWindowCorner: null,
       motivationPosition: null,
       motivationIntervalMinutes: null,
-      motivationDurationSeconds: null
+      motivationDurationSeconds: null,
+      paidMonths: {}
     };
     settings.employers = this.getAllEmployers();
 
@@ -573,6 +574,14 @@ class LocalDatabaseService {
       }
       if (row.key === "motivationDurationSeconds") {
         settings.motivationDurationSeconds = row.value ? Number(row.value) : null;
+      }
+      if (row.key === "paidMonths") {
+        try {
+          const parsed = JSON.parse(row.value || "{}");
+          settings.paidMonths = parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+          settings.paidMonths = {};
+        }
       }
     });
 
@@ -678,6 +687,25 @@ class LocalDatabaseService {
            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
         )
         .run("motivationDurationSeconds", value, ts);
+    }
+
+    // paidMonths: { "YYYY-M": ["employer name", ...] } — employers marked as paid per month.
+    if (settings.paidMonths !== undefined) {
+      const value = settings.paidMonths && typeof settings.paidMonths === "object" ? settings.paidMonths : {};
+      this.db
+        .prepare(
+          `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+        )
+        .run("paidMonths", JSON.stringify(value), ts);
+
+      if (enqueue) {
+        this.enqueueSync("app_settings", "paidMonths", "upsert", {
+          key: "paidMonths",
+          value,
+          updatedAt: ts
+        });
+      }
     }
   }
 

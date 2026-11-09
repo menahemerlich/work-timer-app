@@ -21,6 +21,8 @@ export class ReportsView {
     this.dateFrom = document.getElementById("dateFrom");
     this.dateTo = document.getElementById("dateTo");
     this.dateFilterClear = document.getElementById("dateFilterClear");
+    this.unpaidOnlyFilter = document.getElementById("unpaidOnlyFilter");
+    this.monthlySummaryUnpaidOnly = document.getElementById("monthlySummaryUnpaidOnly");
     this.logsTableBody = document.querySelector("#logsTable tbody");
     this.noLogsMsg = document.getElementById("noLogsMsg");
     this.logsTable = document.getElementById("logsTable");
@@ -514,7 +516,10 @@ export class ReportsView {
       hasMonthData = false,
       getEmployerColorByName,
       onOpenCalculator = null,
-      goalProgress = null
+      goalProgress = null,
+      isPaid = null,
+      onTogglePaid = null,
+      emptyMessage = "אין נתונים להצגה בחודש זה"
     } = {}
   ) {
     this.monthlySummaryBody.innerHTML = "";
@@ -532,7 +537,7 @@ export class ReportsView {
 
     if (!summary.rows.length) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="3" class="empty-summary">אין נתונים להצגה בחודש זה</td>`;
+      tr.innerHTML = `<td colspan="4" class="empty-summary">${emptyMessage}</td>`;
       this.monthlySummaryBody.appendChild(tr);
       return;
     }
@@ -565,7 +570,22 @@ export class ReportsView {
         <td>${row.employerName}</td>
         <td>${row.workDays}</td>
         <td>${row.totalStr}</td>
+        <td class="paid-cell"></td>
       `;
+      const paid = Boolean(isPaid?.(row.employerName));
+      tr.classList.toggle("is-paid", paid);
+      const label = document.createElement("label");
+      label.className = "paid-toggle";
+      label.title = paid ? "סומן כשולם — לחץ לביטול" : "סמן כשולם";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = paid;
+      checkbox.setAttribute("aria-label", `שולם — ${row.employerName}`);
+      checkbox.addEventListener("change", () => onTogglePaid?.(row.employerName, checkbox.checked));
+      const text = document.createElement("span");
+      text.textContent = "שולם";
+      label.append(checkbox, text);
+      tr.querySelector(".paid-cell").appendChild(label);
       this.monthlySummaryBody.appendChild(tr);
     });
 
@@ -583,6 +603,7 @@ export class ReportsView {
       </td>
       <td><strong>${summary.overall.workDays}</strong></td>
       <td><strong>${summary.overall.totalStr}</strong></td>
+      <td><strong>${summary.rows.filter((r) => isPaid?.(r.employerName)).length}/${summary.rows.length}</strong></td>
     `;
     this.monthlySummaryBody.appendChild(overallRow);
 

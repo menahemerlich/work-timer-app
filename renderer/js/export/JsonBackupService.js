@@ -38,7 +38,8 @@ export class JsonBackupService {
 
     this.settingsRepo.replaceAll({
       employers: (payload.settings?.employers || []).map((item) => new Employer(item)),
-      lastSelectedEmployerId: payload.settings?.lastSelectedEmployerId || null
+      lastSelectedEmployerId: payload.settings?.lastSelectedEmployerId || null,
+      paidMonths: payload.settings?.paidMonths
     });
 
     if (Array.isArray(payload.projects)) {

@@ -347,6 +347,20 @@ class SyncEngine {
             { enqueue: false }
           );
         }
+        if (key === "paidMonths") {
+          let parsed = value;
+          if (typeof parsed === "string") {
+            try {
+              parsed = JSON.parse(parsed);
+            } catch {
+              parsed = {};
+            }
+          }
+          this.localDb.saveSettings(
+            { paidMonths: parsed && typeof parsed === "object" ? parsed : {} },
+            { enqueue: false }
+          );
+        }
       });
 
       if (remote.timerState) {

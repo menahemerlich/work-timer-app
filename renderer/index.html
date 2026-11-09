@@ -191,6 +191,16 @@
                   </div>
                 </div>
               </div>
+
+              <div class="filter-panel filter-panel-payment">
+                <div class="filter-panel-header">
+                  <span class="filter-panel-title">💰 לפי תשלום</span>
+                </div>
+                <label class="paid-toggle unpaid-filter-toggle">
+                  <input type="checkbox" id="unpaidOnlyFilter" />
+                  <span>לא שולם בלבד</span>
+                </label>
+              </div>
             </div>
           </aside>
 
@@ -243,22 +253,33 @@
 
           <div class="panel-card" id="monthlySummaryBox" style="display:none;">
             <div class="summary-header">
-              <div class="summary-title-row">
+              <div class="summary-top-row">
                 <div class="section-title">📦 סיכום חודשי</div>
                 <div class="summary-month-picker">
                   <label class="field-label" for="monthlySummaryMonth">חודש</label>
                   <select id="monthlySummaryMonth" class="field-input"></select>
                 </div>
               </div>
-              <div class="filter-group summary-filter filter-group-employers">
-                <div class="filter-label-row">
-                  <span class="field-label">מעסיקים</span>
-                  <div class="employer-filter-actions">
-                    <button type="button" class="link-btn" id="monthlySummarySelectAll">הכל</button>
-                    <button type="button" class="link-btn" id="monthlySummaryClearAll">נקה</button>
+              <div class="summary-filters">
+                <div class="summary-zone summary-zone-employers">
+                  <div class="summary-zone-head">
+                    <span class="summary-zone-title">🏢 מעסיקים</span>
+                    <div class="employer-filter-actions">
+                      <button type="button" class="link-btn" id="monthlySummarySelectAll">הכל</button>
+                      <button type="button" class="link-btn" id="monthlySummaryClearAll">נקה</button>
+                    </div>
                   </div>
+                  <div id="monthlySummaryEmployerChips" class="employer-filter-chips"></div>
                 </div>
-                <div id="monthlySummaryEmployerChips" class="employer-filter-chips"></div>
+                <div class="summary-zone summary-zone-payment">
+                  <div class="summary-zone-head">
+                    <span class="summary-zone-title">💰 תשלום</span>
+                  </div>
+                  <label class="paid-toggle unpaid-filter-toggle">
+                    <input type="checkbox" id="monthlySummaryUnpaidOnly" />
+                    <span>לא שולם בלבד</span>
+                  </label>
+                </div>
               </div>
             </div>
             <div id="monthlyGoalBox" class="monthly-goal-box" hidden></div>
@@ -269,6 +290,7 @@
                     <th>מעסיק</th>
                     <th>ימי עבודה</th>
                     <th>סה"כ שעות</th>
+                    <th>שולם</th>
                   </tr>
                 </thead>
                 <tbody id="monthlySummaryBody"></tbody>
