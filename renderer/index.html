@@ -294,15 +294,25 @@
         </section>
 
         <section class="tab-panel" data-panel="tasks">
-          <div class="tasks-toolbar">
-            <div class="tasks-heading">
-              <button type="button" class="tasks-back-btn" id="tasksBackBtn" hidden>→ כל הלקוחות</button>
-              <div class="section-title tasks-title" id="tasksTitle">📋 משימות</div>
-              <p class="charts-desc" id="tasksSubtitle"></p>
+          <div class="tasks-layout">
+            <aside class="tasks-sidebar" aria-label="לקוחות">
+              <div class="tasks-sidebar-head">
+                <span>👥 לקוחות</span>
+                <span class="tasks-sidebar-total" id="tasksOpenTotal"></span>
+              </div>
+              <div class="tasks-client-list" id="tasksClientList" role="listbox" aria-label="בחירת לקוח"></div>
+            </aside>
+            <div class="tasks-main">
+              <div class="tasks-main-head">
+                <div class="tasks-heading">
+                  <div class="tasks-title" id="tasksTitle">📋 משימות</div>
+                  <div class="tasks-subtitle" id="tasksSubtitle"></div>
+                </div>
+                <button type="button" class="btn-action btn-lavender-solid tasks-add-btn" id="tasksAddBtn">＋ הוספת משימה</button>
+              </div>
+              <div class="tasks-main-body" id="tasksBody"></div>
             </div>
-            <button type="button" class="btn-action btn-lavender-solid tasks-add-btn" id="tasksAddBtn">＋ הוספת משימה</button>
           </div>
-          <div id="tasksBody"></div>
         </section>
 
         <section class="tab-panel" data-panel="charts">

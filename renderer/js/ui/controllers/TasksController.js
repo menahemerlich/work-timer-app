@@ -68,16 +68,20 @@ function compareDone(a, b) {
   return String(b.completedAt || "").localeCompare(String(a.completedAt || ""));
 }
 
+function initialOf(employer) {
+  return escapeHtml(employer.name.trim().charAt(0) || "?");
+}
+
 export class TasksController {
   constructor({ taskRepo, employerRepo, modal }) {
     this.taskRepo = taskRepo;
     this.employerRepo = employerRepo;
     this.modal = modal;
-    this.panel = document.querySelector('[data-panel="tasks"]');
+    this.clientList = document.getElementById("tasksClientList");
+    this.openTotalEl = document.getElementById("tasksOpenTotal");
     this.body = document.getElementById("tasksBody");
     this.titleEl = document.getElementById("tasksTitle");
     this.subtitleEl = document.getElementById("tasksSubtitle");
-    this.backBtn = document.getElementById("tasksBackBtn");
     this.addBtn = document.getElementById("tasksAddBtn");
     this.currentEmployerId = null;
     this.filter = "open";
@@ -85,15 +89,15 @@ export class TasksController {
 
   init() {
     this.addBtn.addEventListener("click", () => this.openTaskModal());
-    this.backBtn.addEventListener("click", () => this.showOverview());
 
-    this.body.addEventListener("click", (event) => this.handleBodyClick(event));
-    this.body.addEventListener("keydown", (event) => {
-      if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-open-client]")) {
-        event.preventDefault();
-        this.openClient(event.target.dataset.openClient);
+    this.clientList.addEventListener("click", (event) => {
+      const item = event.target.closest("[data-open-client]");
+      if (item) {
+        this.openClient(item.dataset.openClient);
       }
     });
+    this.clientList.addEventListener("keydown", (event) => this.handleListKeys(event));
+    this.body.addEventListener("click", (event) => this.handleBodyClick(event));
 
     ["tasks:changed", "settings:changed"].forEach((name) =>
       window.addEventListener(name, () => this.render())
@@ -116,105 +120,111 @@ export class TasksController {
     return employer.color || getColorForOrphanName(employer.name);
   }
 
-  showOverview() {
-    this.currentEmployerId = null;
+  openClient(employerId) {
+    if (employerId !== this.currentEmployerId) {
+      this.filter = "open";
+    }
+    this.currentEmployerId = employerId;
     this.render();
-    this.panel.scrollTop = 0;
+    this.body.scrollTop = 0;
   }
 
-  openClient(employerId) {
-    this.currentEmployerId = employerId;
-    this.filter = "open";
-    this.render();
-    this.panel.scrollTop = 0;
+  /** Up / down arrows move between clients in the side list. */
+  handleListKeys(event) {
+    const items = [...this.clientList.querySelectorAll("[data-open-client]")];
+    const index = items.indexOf(event.target.closest("[data-open-client]"));
+    if (index < 0) {
+      return;
+    }
+    let next = null;
+    if (event.key === "ArrowDown") next = items[index + 1];
+    if (event.key === "ArrowUp") next = items[index - 1];
+    if (event.key === "Enter" || event.key === " ") next = items[index];
+    if (!next) {
+      return;
+    }
+    event.preventDefault();
+    const id = next.dataset.openClient;
+    this.openClient(id);
+    this.clientList.querySelector(`[data-open-client="${CSS.escape(id)}"]`)?.focus();
   }
 
   render() {
-    const employer = this.currentEmployerId ? this.employerRepo.getById(this.currentEmployerId) : null;
-    if (this.currentEmployerId && !employer) {
-      this.currentEmployerId = null;
+    const employers = this.getEmployers();
+    if (!employers.some((employer) => employer.id === this.currentEmployerId)) {
+      // Start on the first client that has open tasks, so the pane isn't empty.
+      const withOpen = employers.find((employer) =>
+        this.taskRepo.getByEmployer(employer.id).some((task) => !task.isDone)
+      );
+      this.currentEmployerId = (withOpen || employers[0])?.id || null;
+      this.filter = "open";
     }
+
+    this.renderClientList(employers);
+    const employer = this.currentEmployerId ? this.employerRepo.getById(this.currentEmployerId) : null;
 
     if (employer) {
       this.renderClient(employer);
-    } else {
-      this.renderOverview();
-    }
-  }
-
-  // ---------- Overview: one card per client ----------
-
-  renderOverview() {
-    const employers = this.getEmployers();
-    const today = todayIso();
-    const openTotal = this.taskRepo.getAll().filter((task) => !task.isDone).length;
-
-    this.backBtn.hidden = true;
-    this.titleEl.textContent = "📋 משימות";
-    this.subtitleEl.textContent = employers.length
-      ? `${openTotal} משימות פתוחות אצל ${employers.length} לקוחות · לחץ על לקוח כדי לראות את המשימות שלו`
-      : "";
-
-    if (!employers.length) {
-      this.addBtn.disabled = true;
-      this.body.innerHTML = `
-        <div class="panel-card empty-state">
-          <div class="empty-icon">🗂️</div>
-          <p>עדיין אין לקוחות. הוסף מעסיק בלשונית ההגדרות, ואז תוכל להוסיף לו משימות.</p>
-        </div>`;
       return;
     }
 
-    this.addBtn.disabled = false;
-    const cards = employers.map((employer) => {
-      const tasks = this.taskRepo.getByEmployer(employer.id);
-      const open = tasks.filter((task) => !task.isDone);
-      const done = tasks.length - open.length;
-      const overdue = open.filter((task) => task.dueDate && task.dueDate < today).length;
-      const urgent = open.filter((task) => task.priority === TASK_PRIORITY.HIGH).length;
-      const next = open.filter((task) => task.dueDate && task.dueDate >= today).sort(compareOpen)[0];
-      const percent = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-
-      const badges = [];
-      if (overdue) {
-        badges.push(`<span class="client-badge is-overdue">⚠️ ${overdue} באיחור</span>`);
-      }
-      if (urgent) {
-        badges.push(`<span class="client-badge is-urgent">🔥 ${urgent} דחופות</span>`);
-      }
-      if (next) {
-        badges.push(`<span class="client-badge">📅 הבאה: ${escapeHtml(formatDue(next.dueDate))}</span>`);
-      }
-      if (!badges.length) {
-        badges.push(
-          `<span class="client-badge is-calm">${open.length ? "אין תאריכי יעד" : tasks.length ? "✨ הכל הושלם" : "אין משימות עדיין"}</span>`
-        );
-      }
-
-      return `
-        <div class="client-card" role="button" tabindex="0" data-open-client="${escapeHtml(employer.id)}"
-             style="--client-color: ${escapeHtml(this.employerColor(employer))}">
-          <div class="client-card-top">
-            <span class="client-initial">${escapeHtml(employer.name.trim().charAt(0) || "?")}</span>
-            <div class="client-card-name">${escapeHtml(employer.name)}</div>
-            <span class="client-card-arrow" aria-hidden="true">‹</span>
-          </div>
-          <div class="client-card-count">
-            <span class="client-count-num">${open.length}</span>
-            <span class="client-count-label">${open.length === 1 ? "משימה פתוחה" : "משימות פתוחות"}</span>
-          </div>
-          <div class="client-progress" title="${done} מתוך ${tasks.length} הושלמו">
-            <div class="client-progress-fill" style="width: ${percent}%"></div>
-          </div>
-          <div class="client-progress-label">${done} / ${tasks.length} הושלמו</div>
-          <div class="client-badges">${badges.join("")}</div>
-        </div>`;
-    });
-
-    this.body.innerHTML = `<div class="client-grid">${cards.join("")}</div>`;
+    this.addBtn.disabled = true;
+    this.titleEl.textContent = "📋 משימות";
+    this.subtitleEl.textContent = "";
+    this.body.innerHTML = `
+      <div class="empty-state tasks-empty">
+        <div class="empty-icon">🗂️</div>
+        <p>עדיין אין לקוחות. הוסף מעסיק בלשונית ההגדרות, ואז תוכל להוסיף לו משימות.</p>
+      </div>`;
   }
 
-  // ---------- One client: its tasks ----------
+  // ---------- Side list: one row per client ----------
+
+  renderClientList(employers) {
+    const today = todayIso();
+    const openTotal = this.taskRepo.getAll().filter((task) => !task.isDone).length;
+    this.openTotalEl.textContent = openTotal ? `${openTotal} פתוחות` : "";
+
+    if (!employers.length) {
+      this.clientList.innerHTML = `<div class="tasks-sidebar-empty">אין לקוחות</div>`;
+      return;
+    }
+
+    this.clientList.innerHTML = employers
+      .map((employer) => {
+        const open = this.taskRepo.getByEmployer(employer.id).filter((task) => !task.isDone);
+        const overdue = open.filter((task) => task.dueDate && task.dueDate < today).length;
+        const dueToday = open.filter((task) => task.dueDate === today).length;
+        const active = employer.id === this.currentEmployerId;
+
+        let sub = open.length
+          ? `${open.length} ${open.length === 1 ? "משימה פתוחה" : "משימות פתוחות"}`
+          : "אין משימות פתוחות";
+        let subClass = "";
+        if (overdue) {
+          sub = `⚠️ ${overdue} באיחור`;
+          subClass = "is-overdue";
+        } else if (dueToday) {
+          sub = `☀️ ${dueToday} להיום`;
+          subClass = "is-today";
+        }
+
+        return `
+          <div class="tasks-client-item ${active ? "active" : ""}" role="option" aria-selected="${active}"
+               tabindex="${active ? 0 : -1}" data-open-client="${escapeHtml(employer.id)}"
+               style="--client-color: ${escapeHtml(this.employerColor(employer))}">
+            <span class="client-initial">${initialOf(employer)}</span>
+            <div class="tasks-client-text">
+              <div class="tasks-client-name">${escapeHtml(employer.name)}</div>
+              <div class="tasks-client-sub ${subClass}">${sub}</div>
+            </div>
+            ${open.length ? `<span class="tasks-client-count ${overdue ? "is-overdue" : ""}">${open.length}</span>` : ""}
+          </div>`;
+      })
+      .join("");
+  }
+
+  // ---------- Main pane: the selected client's tasks ----------
 
   renderClient(employer) {
     const today = todayIso();
@@ -224,19 +234,17 @@ export class TasksController {
     const done = tasks.filter((task) => task.isDone).sort(compareDone);
     const overdueCount = open.filter((task) => task.dueDate && task.dueDate < today).length;
 
-    this.backBtn.hidden = false;
     this.addBtn.disabled = false;
     this.titleEl.innerHTML = `<span class="client-initial is-small" style="--client-color: ${escapeHtml(
       this.employerColor(employer)
-    )}">${escapeHtml(employer.name.trim().charAt(0) || "?")}</span> ${escapeHtml(employer.name)}`;
-    this.subtitleEl.textContent = "";
+    )}">${initialOf(employer)}</span><span class="tasks-title-name">${escapeHtml(employer.name)}</span>`;
 
-    const stats = `
-      <div class="tasks-stats">
-        <div class="tasks-stat"><span class="tasks-stat-num">${open.length}</span><span>פתוחות</span></div>
-        <div class="tasks-stat ${overdueCount ? "is-overdue" : ""}"><span class="tasks-stat-num">${overdueCount}</span><span>באיחור</span></div>
-        <div class="tasks-stat is-done"><span class="tasks-stat-num">${done.length}</span><span>הושלמו</span></div>
-      </div>`;
+    const parts = [`${open.length} פתוחות`];
+    if (overdueCount) {
+      parts.push(`<span class="is-overdue">${overdueCount} באיחור</span>`);
+    }
+    parts.push(`${done.length} הושלמו`);
+    this.subtitleEl.innerHTML = parts.join(" · ");
 
     const filters = `
       <div class="tasks-filter" role="tablist">
@@ -259,7 +267,9 @@ export class TasksController {
         { title: "🔭 בהמשך", items: open.filter((t) => t.dueDate && t.dueDate > weekEnd) },
         { title: "📝 ללא תאריך", items: open.filter((t) => !t.dueDate) }
       ];
-      buckets.filter((bucket) => bucket.items.length).forEach((bucket) => groups.push(this.renderGroup(bucket, today)));
+      buckets
+        .filter((bucket) => bucket.items.length)
+        .forEach((bucket) => groups.push(this.renderGroup(bucket, today)));
     }
     if (this.filter !== "open" && done.length) {
       groups.push(this.renderGroup({ title: "✅ הושלמו", className: "is-done", items: done }, today));
@@ -280,11 +290,7 @@ export class TasksController {
         </div>`;
     }
 
-    this.body.innerHTML = `
-      <div class="panel-card tasks-client-card">
-        <div class="tasks-client-head">${stats}${filters}</div>
-        <div class="tasks-list">${list}</div>
-      </div>`;
+    this.body.innerHTML = `${filters}<div class="tasks-list">${list}</div>`;
   }
 
   renderGroup({ title, className = "", items }, today) {
@@ -312,10 +318,10 @@ export class TasksController {
       meta.push(`<span class="task-completed">הושלמה ${completed.getDate()}.${completed.getMonth() + 1}</span>`);
     }
 
+    const checkLabel = task.isDone ? "החזר לפתוחה" : "סמן כהושלמה";
     return `
       <div class="task-item priority-${task.priority} ${task.isDone ? "is-done" : ""}" data-task-id="${escapeHtml(task.id)}">
-        <button type="button" class="task-check" data-toggle-task
-                aria-label="${task.isDone ? "החזר לפתוחה" : "סמן כהושלמה"}" title="${task.isDone ? "החזר לפתוחה" : "סמן כהושלמה"}">✓</button>
+        <button type="button" class="task-check" data-toggle-task aria-label="${checkLabel}" title="${checkLabel}">✓</button>
         <div class="task-main">
           <div class="task-title">${escapeHtml(task.title)}</div>
           ${task.notes ? `<div class="task-notes">${escapeHtml(task.notes)}</div>` : ""}
@@ -329,12 +335,6 @@ export class TasksController {
   }
 
   handleBodyClick(event) {
-    const clientCard = event.target.closest("[data-open-client]");
-    if (clientCard) {
-      this.openClient(clientCard.dataset.openClient);
-      return;
-    }
-
     const filterBtn = event.target.closest("[data-filter]");
     if (filterBtn) {
       this.filter = filterBtn.dataset.filter;
@@ -381,8 +381,7 @@ export class TasksController {
       return;
     }
 
-    const selectedId =
-      task?.employerId || this.currentEmployerId || this.employerRepo.getLastSelectedId?.() || employers[0].id;
+    const selectedId = task?.employerId || this.currentEmployerId || employers[0].id;
     const priority = task?.priority || TASK_PRIORITY.NORMAL;
 
     const options = employers
@@ -454,7 +453,7 @@ export class TasksController {
         await this.taskRepo.save(Task.create({ employerId, title, notes, priority, dueDate }, generateId));
       }
       this.modal.hide();
-      if (this.currentEmployerId && this.currentEmployerId !== employerId) {
+      if (this.currentEmployerId !== employerId) {
         this.openClient(employerId);
       }
     } catch (error) {
