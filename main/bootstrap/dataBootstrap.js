@@ -11,6 +11,8 @@ const { NetworkMonitor } = require("../sync/NetworkMonitor");
 const { registerDataHandlers } = require("../ipc/dataHandlers");
 const { registerAuthHandlers } = require("../ipc/authHandlers");
 const { registerSyncHandlers } = require("../ipc/syncHandlers");
+const { registerEmailHandlers } = require("../ipc/emailHandlers");
+const { EmailService } = require("../email/EmailService");
 
 let localDb = null;
 let syncEngine = null;
@@ -66,6 +68,7 @@ function initDataLayer() {
   registerDataHandlers({ localDb, syncEngine });
   registerAuthHandlers({ supabase, syncEngine, localDb });
   registerSyncHandlers({ syncEngine, networkMonitor });
+  registerEmailHandlers({ emailService: new EmailService(userDataPath) });
 
   return supabase;
 }

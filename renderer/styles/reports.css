@@ -958,3 +958,24 @@ tbody tr:hover {
   border-color: var(--peach);
   color: #b45309;
 }
+
+.email-cell {
+  white-space: nowrap;
+}
+
+.row-email-btn {
+  width: 30px;
+  height: 30px;
+  margin: 0 2px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.row-email-btn:hover {
+  background: #ffffff;
+  border-color: var(--lavender-deep);
+}

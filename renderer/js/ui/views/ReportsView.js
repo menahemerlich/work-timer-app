@@ -519,6 +519,7 @@ export class ReportsView {
       goalProgress = null,
       isPaid = null,
       onTogglePaid = null,
+      emailActions = null,
       emptyMessage = "אין נתונים להצגה בחודש זה"
     } = {}
   ) {
@@ -537,7 +538,7 @@ export class ReportsView {
 
     if (!summary.rows.length) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="4" class="empty-summary">${emptyMessage}</td>`;
+      tr.innerHTML = `<td colspan="5" class="empty-summary">${emptyMessage}</td>`;
       this.monthlySummaryBody.appendChild(tr);
       return;
     }
@@ -571,6 +572,7 @@ export class ReportsView {
         <td>${row.workDays}</td>
         <td>${row.totalStr}</td>
         <td class="paid-cell"></td>
+        <td class="email-cell"></td>
       `;
       const paid = Boolean(isPaid?.(row.employerName));
       tr.classList.toggle("is-paid", paid);
@@ -586,6 +588,23 @@ export class ReportsView {
       text.textContent = "שולם";
       label.append(checkbox, text);
       tr.querySelector(".paid-cell").appendChild(label);
+      if (emailActions) {
+        const cell = tr.querySelector(".email-cell");
+        const addButton = (icon, title, handler) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "row-email-btn";
+          button.textContent = icon;
+          button.title = title;
+          button.setAttribute("aria-label", `${title} — ${row.employerName}`);
+          button.addEventListener("click", () => handler(row.employerName));
+          cell.appendChild(button);
+        };
+        if (emailActions.canRequestPayment && !paid) {
+          addButton("💸", "בקשת תשלום במייל", emailActions.onPaymentRequest);
+        }
+        addButton("📄", "שליחת דוח שעות ללקוח", emailActions.onClientSummary);
+      }
       this.monthlySummaryBody.appendChild(tr);
     });
 
@@ -604,8 +623,16 @@ export class ReportsView {
       <td><strong>${summary.overall.workDays}</strong></td>
       <td><strong>${summary.overall.totalStr}</strong></td>
       <td><strong>${summary.rows.filter((r) => isPaid?.(r.employerName)).length}/${summary.rows.length}</strong></td>
+      <td>${
+        emailActions
+          ? `<button type="button" class="row-email-btn" id="monthlySummaryEmailBtn" title="שליחת סיכום חודשי במייל" aria-label="שליחת סיכום חודשי במייל">📧</button>`
+          : ""
+      }</td>
     `;
     this.monthlySummaryBody.appendChild(overallRow);
+    overallRow
+      .querySelector("#monthlySummaryEmailBtn")
+      ?.addEventListener("click", () => emailActions.onMonthlySummary());
 
     if (onOpenCalculator) {
       overallRow.querySelector("#monthlyCalcBtn")?.addEventListener("click", (e) => {

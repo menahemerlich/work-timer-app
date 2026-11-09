@@ -73,9 +73,12 @@ export class Modal {
     onConfirm,
     onDismiss = null,
     hideConfirm = false,
-    cancelText = "ביטול"
+    cancelText = "ביטול",
+    wide = false
   }) {
     releaseTrappedFocus();
+
+    this.root.querySelector(".modal-card")?.classList.toggle("modal-card--wide", wide);
 
     this.titleEl.textContent = title;
     this.bodyEl.innerHTML = bodyHtml;

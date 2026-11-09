@@ -25,6 +25,8 @@ import { AuthController } from "./ui/controllers/AuthController.js";
 import { SyncStatusController } from "./ui/controllers/SyncStatusController.js";
 import { ChartsController } from "./ui/controllers/ChartsController.js";
 import { TasksController } from "./ui/controllers/TasksController.js";
+import { EmailNotifier } from "./ui/controllers/EmailNotifier.js";
+import { EmailSettingsController } from "./ui/controllers/EmailSettingsController.js";
 
 const settingsRepo = new SettingsRepository();
 const employerRepo = new EmployerRepository(settingsRepo);
@@ -114,6 +116,10 @@ async function startApp() {
 
   const tasksController = new TasksController({ taskRepo, employerRepo, modal });
 
+  const emailNotifier = new EmailNotifier({ reportsController, jsonBackupService, modal });
+  reportsController.emailNotifier = emailNotifier;
+  const emailSettingsController = new EmailSettingsController({ employerRepo });
+
   const authController = new AuthController({ modal });
   const syncStatusController = new SyncStatusController();
 
@@ -147,6 +153,14 @@ async function startApp() {
   safeInit("טיימר", () => timerController.init());
   safeInit("גרפים", () => chartsController.init());
   safeInit("משימות", () => tasksController.init());
+  safeInit("מיילים", () => {
+    window.addEventListener("email:configChanged", () => reportsController.refresh());
+    emailSettingsController.init().catch((error) => console.error("Email settings init failed:", error));
+    emailNotifier
+      .init()
+      .then(() => reportsController.refresh())
+      .catch((error) => console.error("Email notifier init failed:", error));
+  });
 }
 
 startApp();

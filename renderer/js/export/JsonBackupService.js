@@ -9,8 +9,8 @@ export class JsonBackupService {
     this.taskRepo = taskRepo;
   }
 
-  exportBackup() {
-    const payload = {
+  buildPayload() {
+    return {
       version: 1,
       exportedAt: new Date().toISOString(),
       settings: this.settingsRepo.getSettings(),
@@ -18,6 +18,10 @@ export class JsonBackupService {
       tasks: this.taskRepo?.getAll().map((task) => task.toJSON()) || [],
       logs: this.logRepo.getAll().map((log) => log.toJSON())
     };
+  }
+
+  exportBackup() {
+    const payload = this.buildPayload();
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json;charset=utf-8;"

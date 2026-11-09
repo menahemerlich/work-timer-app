@@ -307,6 +307,16 @@ export class ReportsController {
         ? "🎉 כל המעסיקים בחודש זה סומנו כשולמו"
         : "אין נתונים להצגה בחודש זה",
       isPaid: (employerName) => settingsRepo.isEmployerPaid(paidMonthKey, employerName),
+      emailActions: this.emailNotifier
+        ? {
+            canRequestPayment: this.emailNotifier.isEnabled("paymentRequest"),
+            onPaymentRequest: (employerName) =>
+              void this.emailNotifier.openPaymentRequest(paidMonthKey, employerName),
+            onClientSummary: (employerName) =>
+              void this.emailNotifier.openClientSummary(paidMonthKey, employerName),
+            onMonthlySummary: () => void this.emailNotifier.openMonthlySummary(paidMonthKey)
+          }
+        : null,
       onTogglePaid: (employerName, paid) => {
         settingsRepo
           .setEmployerPaid(paidMonthKey, employerName, paid)
@@ -423,6 +433,85 @@ export class ReportsController {
       expectedHoursStr: `${fmt(hoursPerDay)} שעות`,
       percentStr: `${Math.round(percent)}%`
     };
+  }
+
+  /**
+   * One month of work per employer, for emails: days, hours, pay (hourly + units + fixed-price
+   * projects created that month) and whether it was marked as paid.
+   */
+  buildMonthReport(monthKey) {
+    const referenceDate = this.resolveReferenceDate(monthKey);
+    const [year, month] = String(monthKey).split("-").map(Number);
+    const monthLabel = getHebrewMonthLabel(month, year, new Date(1900, 0, 1));
+    const monthLogs = this.reportService.getCurrentMonthLogs(this.logRepo.getAll(), referenceDate);
+    const summary = this.reportService.getSummaryByEmployer(monthLogs);
+    const employers = this.employerRepo.getAll();
+    const activeEmployerIds = new Set(employers.map((employer) => employer.id));
+    const fixedProjects = getFixedProjectsIncomeForMonth(
+      this.projectRepo?.getAll() || [],
+      referenceDate,
+      activeEmployerIds
+    );
+    const payContext = this.getPayContext();
+    const settingsRepo = this.employerRepo.settingsRepository;
+
+    const rows = summary.rows
+      .map((row) => {
+        const employer = employers.find((item) => item.name === row.employerName) || null;
+        const logs = monthLogs
+          .filter((log) => (log.employerName || UNKNOWN_EMPLOYER) === row.employerName)
+          .sort((a, b) => (parseHebrewDate(a.date)?.date || 0) - (parseHebrewDate(b.date)?.date || 0));
+        const fixed = employer
+          ? fixedProjects.filter((project) => project.employerId === employer.id)
+          : [];
+        const amount =
+          computeLogsPay(logs, payContext).total +
+          fixed.reduce((sum, project) => sum + project.fixedPrice, 0);
+        return {
+          employerId: employer?.id || null,
+          employerName: row.employerName,
+          workDays: row.workDays,
+          totalMs: row.totalMs,
+          hoursStr: formatHoursMinutes(row.totalMs),
+          amount,
+          amountStr: formatMoney(amount),
+          paid: settingsRepo.isEmployerPaid(monthKey, row.employerName),
+          logs,
+          fixedProjects: fixed
+        };
+      })
+      .sort((a, b) => a.employerName.localeCompare(b.employerName, "he"));
+
+    const totalMs = rows.reduce((sum, row) => sum + row.totalMs, 0);
+    const totalAmount = rows.reduce((sum, row) => sum + row.amount, 0);
+    return {
+      monthKey,
+      monthLabel,
+      rows,
+      totalMs,
+      totalHoursStr: formatHoursMinutes(totalMs),
+      totalAmount,
+      totalAmountStr: formatMoney(totalAmount),
+      workDays: summary.overall.workDays
+    };
+  }
+
+  /** Expected hours for the whole month (all Sunday–Thursday days), or null without a target. */
+  computeFullMonthTargetHours(referenceDate = new Date()) {
+    const hoursPerDay = this.employerRepo.settingsRepository.getSettings().monthlyTargetHoursPerDay ?? null;
+    if (!hoursPerDay || hoursPerDay <= 0) {
+      return null;
+    }
+    const year = referenceDate.getFullYear();
+    const month = referenceDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let workDays = 0;
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      if (new Date(year, month, day).getDay() <= 4) {
+        workDays += 1;
+      }
+    }
+    return workDays * hoursPerDay;
   }
 
   getPayContext() {

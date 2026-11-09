@@ -88,6 +88,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     isConfigured: () => ipcRenderer.invoke("auth:isConfigured")
   },
 
+  email: {
+    getConfig: () => ipcRenderer.invoke("email:getConfig"),
+    saveConfig: (patch) => ipcRenderer.invoke("email:saveConfig", patch),
+    verify: () => ipcRenderer.invoke("email:verify"),
+    send: (mail) => ipcRenderer.invoke("email:send", mail),
+    markSent: (key) => ipcRenderer.invoke("email:markSent", key)
+  },
+
   sync: {
     getStatus: () => ipcRenderer.invoke("sync:getStatus"),
     forceSync: () => ipcRenderer.invoke("sync:forceSync"),
