@@ -5,6 +5,7 @@
   "main": "main/main.js",
   "scripts": {
     "start": "electron .",
+    "demo": "node scripts/run-demo.js",
     "build": "electron-builder",
     "postinstall": "electron-rebuild -f -w better-sqlite3",
     "rebuild": "electron-rebuild -f -w better-sqlite3"
@@ -30,6 +31,7 @@
       "mini/**/*",
       "earnings/**/*",
       "motivation/**/*",
+      "psalm/**/*",
       "preload/**/*",
       "shared/**/*",
       "package.json"

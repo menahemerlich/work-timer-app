@@ -9,6 +9,7 @@ const {
 } = require("./windows/MotivationWindow");
 const { registerMiniWindowHandlers } = require("./ipc/miniWindowHandlers");
 const { registerWindowHandlers } = require("./ipc/windowHandlers");
+const { registerPrivacyHandlers, closePrivacyGate } = require("./privacy/moneyPrivacy");
 const { initDataLayer, startDataServices, stopDataServices, getLocalDb } = require("./bootstrap/dataBootstrap");
 
 // WORKTIMER_USER_DATA runs the app on a separate data folder (for testing without touching real data).
@@ -27,7 +28,9 @@ if (!gotSingleInstanceLock) {
     const { BrowserWindow } = require("electron");
     const windows = BrowserWindow.getAllWindows();
     if (windows.length > 0) {
-      const mainWindow = windows[0];
+      // Not windows[0]: the list also holds small/hidden windows (earnings, the psalm standby).
+      const mainWindow =
+        windows.find((win) => win.webContents.getURL().includes("/renderer/index.html")) || windows[0];
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
       }
@@ -38,6 +41,7 @@ if (!gotSingleInstanceLock) {
 
 registerMiniWindowHandlers();
 registerWindowHandlers();
+registerPrivacyHandlers();
 
 if (gotSingleInstanceLock) {
   app.whenReady().then(() => {
@@ -80,6 +84,7 @@ if (gotSingleInstanceLock) {
     mainWindow.on("closed", () => {
       closeEarningsWindow();
       closeMotivationWindow();
+      closePrivacyGate();
     });
 
     app.on("activate", () => {

@@ -1,0 +1,320 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --text: #4a4458;
+  --text-soft: #8b8394;
+  --lavender: #c4b5fd;
+  --lavender-deep: #a78bfa;
+  --purple: #7c3aed;
+  --pink: #f9a8d4;
+  --mint-deep: #34d399;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: "Rubik", system-ui, sans-serif;
+  color: var(--text);
+  user-select: none;
+}
+
+/* Hidden standby copy: nothing is rendered, so the entry animations play when it opens. */
+html.standby body {
+  display: none;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(ellipse at center, rgba(74, 68, 88, 0.42), rgba(46, 38, 64, 0.62));
+  animation: backdrop-in 0.35s ease-out both;
+}
+
+.card {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 30px 38px 26px;
+  border-radius: 28px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(253, 232, 243, 0.95), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(232, 244, 253, 0.95), transparent 60%),
+    linear-gradient(160deg, #ffffff 0%, #f7f3ff 60%, #fdf2f8 100%);
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 30px 80px rgba(76, 29, 149, 0.35),
+    0 0 0 6px rgba(196, 181, 253, 0.28);
+  animation: card-in 0.55s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+}
+
+.sparkle {
+  position: absolute;
+  color: var(--lavender-deep);
+  opacity: 0.55;
+  animation: twinkle 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.sparkle-1 {
+  top: 18px;
+  right: 26px;
+  font-size: 18px;
+}
+
+.sparkle-2 {
+  top: 54px;
+  left: 30px;
+  font-size: 14px;
+  color: #f472b6;
+  animation-delay: 0.8s;
+}
+
+.sparkle-3 {
+  bottom: 96px;
+  right: 18px;
+  font-size: 12px;
+  animation-delay: 1.5s;
+}
+
+.eyebrow {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(237, 233, 254, 0.9);
+  color: var(--purple);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.title {
+  margin: 14px 0 2px;
+  font-family: "Frank Ruhl Libre", "David", "Times New Roman", serif;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1.3;
+  background: linear-gradient(135deg, #7c3aed 0%, #c026d3 55%, #ec4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.source {
+  font-family: "Frank Ruhl Libre", "David", "Times New Roman", serif;
+  font-size: 15px;
+  color: var(--text-soft);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px auto 10px;
+  width: 70%;
+  color: var(--pink);
+  font-size: 14px;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--lavender), transparent);
+}
+
+.psalm {
+  margin: 0;
+  font-family: "Frank Ruhl Libre", "David", "Times New Roman", serif;
+  font-size: 23px;
+  font-weight: 500;
+  line-height: 2.05;
+  color: #3f3651;
+}
+
+.verse {
+  display: block;
+  animation: verse-in 0.6s ease-out both;
+}
+
+.verse:nth-child(1) { animation-delay: 0.15s; }
+.verse:nth-child(2) { animation-delay: 0.3s; }
+.verse:nth-child(3) { animation-delay: 0.45s; }
+.verse:nth-child(4) { animation-delay: 0.6s; }
+.verse:nth-child(5) { animation-delay: 0.75s; }
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px dashed rgba(196, 181, 253, 0.8);
+}
+
+.ring {
+  position: relative;
+  flex: none;
+  width: 78px;
+  height: 78px;
+}
+
+.ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.ring-track {
+  fill: none;
+  stroke: rgba(196, 181, 253, 0.28);
+  stroke-width: 8;
+}
+
+.ring-progress {
+  fill: none;
+  stroke: url(#ringGradient);
+  stroke-width: 8;
+  stroke-linecap: round;
+  filter: drop-shadow(0 2px 4px rgba(167, 139, 250, 0.45));
+  transition: stroke 0.3s ease;
+}
+
+.ring-count,
+.ring-check {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--purple);
+  font-variant-numeric: tabular-nums;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.ring-count.tick {
+  animation: tick 0.35s ease-out;
+}
+
+.ring-check {
+  opacity: 0;
+  transform: scale(0.4);
+  color: var(--mint-deep);
+  font-size: 32px;
+}
+
+.done .ring-progress {
+  stroke: var(--mint-deep);
+}
+
+.done .ring-count {
+  opacity: 0;
+  transform: scale(0.4);
+}
+
+.done .ring-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.footer-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: right;
+}
+
+.hint {
+  font-size: 13.5px;
+  color: var(--text-soft);
+  line-height: 1.5;
+  max-width: 240px;
+}
+
+.cancel-btn {
+  padding: 5px 16px;
+  border: 1.5px solid rgba(196, 181, 253, 0.9);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-soft);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.cancel-btn:hover,
+.cancel-btn:focus-visible {
+  background: #fff1f2;
+  border-color: #fb7185;
+  color: #e11d48;
+  outline: none;
+}
+
+.closing .backdrop {
+  animation: backdrop-out 0.32s ease-in both;
+}
+
+.closing .card {
+  animation: card-out 0.32s ease-in both;
+}
+
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes card-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(12px) scale(0.96); }
+}
+
+@keyframes verse-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50% { opacity: 0.8; transform: scale(1.15); }
+}
+
+@keyframes tick {
+  from { transform: scale(1.25); }
+  to { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+}

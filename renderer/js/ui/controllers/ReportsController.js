@@ -716,7 +716,7 @@ export class ReportsController {
             ${rows
               .map((r) => {
                 const rateCell = r.rates.length
-                  ? r.rates.map((rate) => formatMoney(rate).replace("₪", "")).join(" → ")
+                  ? `<span data-money>${r.rates.map((rate) => formatMoney(rate).replace("₪", "")).join(" → ")}</span>`
                   : "—";
                 const amountCell = r.amount === null ? "—" : formatMoney(r.amount);
                 return `
@@ -784,7 +784,7 @@ export class ReportsController {
                   <tr>
                     <td>${this.escapeHtml(r.name)}<div class="calc-sub">${this.escapeHtml(r.employerName)}</div></td>
                     <td>${r.units} <span class="calc-sub">${this.escapeHtml(r.unitName)}</span><div class="calc-sub">${formatHours(r.ms / 3600000)} שעות</div></td>
-                    <td>${r.unitPrice === null ? "—" : formatMoney(r.unitPrice).replace("₪", "")}</td>
+                    <td>${r.unitPrice === null ? "—" : `<span data-money>${formatMoney(r.unitPrice).replace("₪", "")}</span>`}</td>
                     <td><strong>${r.amount === null ? "—" : formatMoney(r.amount)}</strong></td>
                     <td>${r.effectiveRate === null ? "—" : formatMoney(r.effectiveRate)}</td>
                   </tr>

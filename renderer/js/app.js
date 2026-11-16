@@ -15,6 +15,8 @@ import { TabNav } from "./ui/components/TabNav.js";
 import { Modal } from "./ui/components/Modal.js";
 import { initFocusGuard } from "./ui/components/FocusGuard.js";
 import { initConfirmDialog } from "./ui/components/ConfirmDialog.js";
+import { ChartsPrivacyLock } from "./ui/components/ChartsPrivacyLock.js";
+import { initMoneyMask } from "../../shared/privacy/moneyMask.js";
 import { TimerView } from "./ui/views/TimerView.js";
 import { ReportsView } from "./ui/views/ReportsView.js";
 import { SettingsView } from "./ui/views/SettingsView.js";
@@ -134,7 +136,13 @@ async function startApp() {
 
   initFocusGuard();
   initConfirmDialog(modal);
+  const chartsPrivacyLock = new ChartsPrivacyLock();
+  safeInit("הסתרת סכומים", () => {
+    chartsPrivacyLock.init();
+    initMoneyMask({ showPill: true });
+  });
   tabNav.init((tabId) => {
+    chartsPrivacyLock.onTabChange(tabId);
     chartsController.onTabChange(tabId);
     tasksController.onTabChange(tabId);
   });
