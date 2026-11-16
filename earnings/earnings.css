@@ -71,6 +71,12 @@ body {
   font-weight: 700;
   direction: ltr;
   line-height: 1.05;
+}
+
+/* The gradient text sits on the amount itself: when it is wrapped in the privacy mask,
+   a gradient clipped on the parent does not paint the wrapped (inline-block) value. */
+.earn-amount,
+.earn-amount .money-mask__value {
   background: linear-gradient(135deg, #7c3aed, #db2777, #34d399);
   background-size: 200% 200%;
   -webkit-background-clip: text;
