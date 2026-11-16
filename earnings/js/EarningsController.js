@@ -9,6 +9,9 @@ import {
   findEmployerForLog,
   getRateForDate
 } from "../../renderer/js/core/utils/employerRates.js";
+import { initMoneyMask } from "../../shared/privacy/moneyMask.js";
+
+initMoneyMask();
 
 function getLiveElapsedMs(state) {
   if (!state) {

@@ -19,6 +19,34 @@ contextBridge.exposeInMainWorld("electronAPI", {
     open: () => ipcRenderer.send("earnings:open")
   },
 
+  privacy: {
+    getState: () => ipcRenderer.invoke("privacy:getState"),
+    requestReveal: (mode = "reveal") => ipcRenderer.send("privacy:requestReveal", mode),
+    hideNow: () => ipcRenderer.send("privacy:hideNow"),
+    gateComplete: () => ipcRenderer.send("privacy:gateComplete"),
+    gateCancel: () => ipcRenderer.send("privacy:gateCancel"),
+    onState: (callback) => {
+      const listener = (_event, state) => callback(state);
+      ipcRenderer.on("privacy:state", listener);
+      return () => ipcRenderer.removeListener("privacy:state", listener);
+    },
+    onChartsUnlocked: (callback) => {
+      const listener = () => callback();
+      ipcRenderer.on("privacy:chartsUnlocked", listener);
+      return () => ipcRenderer.removeListener("privacy:chartsUnlocked", listener);
+    },
+    onGateStart: (callback) => {
+      const listener = (_event, config) => callback(config);
+      ipcRenderer.on("privacy:gateStart", listener);
+      return () => ipcRenderer.removeListener("privacy:gateStart", listener);
+    },
+    onGateCancelled: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on("privacy:gateCancelled", listener);
+      return () => ipcRenderer.removeListener("privacy:gateCancelled", listener);
+    }
+  },
+
   motivation: {
     notifyConfigChanged: () => ipcRenderer.send("motivation:configChanged"),
     onShow: (callback) => {
